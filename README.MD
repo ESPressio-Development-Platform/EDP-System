@@ -11,6 +11,9 @@ The following facilities are currently provided by the System library:
 - [Composition Framework](./docs/COMPOSITION-FRAMEWORK.MD)  
   Defines compile-time domains, capabilities, providers, requirements, properties, constraints, and complete system compositions.
 
+- [System Identity](./docs/IDENTITY.MD)  
+  Defines the memory-bounded permanent device identity and durable runtime-incarnation model, together with Composition capabilities for platform and persistence-backed identity establishment.
+
 ## Development Status
 
 The System library is being rebuilt progressively, beginning with the facilities upon which higher-level ESPressio libraries will depend.
