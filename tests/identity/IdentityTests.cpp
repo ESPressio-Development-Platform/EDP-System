@@ -201,7 +201,10 @@ namespace ESPressio::System::Tests::Identity {
         if (firstIncarnation.Value() != 1U) return 8;
         if (incarnationProvider.PersistedValue() != firstIncarnation.Value()) return 9;
 
-        IdentityDomain::SystemIdentity identity(resolvedDevice, firstIncarnation);
+        IdentityDomain::SystemIdentity identity(
+            resolvedDevice,
+            firstIncarnation
+        );
         if (!identity.IsValid()) return 10;
 
         const auto* firstDevicePointer = &identity.Device();

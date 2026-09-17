@@ -159,7 +159,10 @@ namespace Example {
         if (!runtimeIncarnationProvider.Establish(runtimeIncarnation)) return 3;
 
         // SystemIdentity now owns the only application-lifetime copy required by System.
-        Identity::SystemIdentity systemIdentity(deviceIdentifier, runtimeIncarnation);
+        Identity::SystemIdentity systemIdentity(
+            deviceIdentifier,
+            runtimeIncarnation
+        );
         if (!systemIdentity.IsValid()) return 4;
 
         // Identity-dependent consumers are initialized only after SystemIdentity exists.

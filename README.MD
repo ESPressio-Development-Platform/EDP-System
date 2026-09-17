@@ -12,7 +12,7 @@ The following facilities are currently provided by the System library:
   Defines compile-time domains, capabilities, providers, requirements, properties, constraints, and complete system compositions.
 
 - [System Identity](./docs/IDENTITY.MD)  
-  Defines the memory-bounded permanent device identity and durable runtime-incarnation model, together with Composition capabilities for platform and persistence-backed identity establishment.
+  Defines the memory-bounded permanent device identity and durable runtime-incarnation model, together with Composition capabilities for platform device identity and durable runtime-incarnation establishment.
 
 ## Development Status
 

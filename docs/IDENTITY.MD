@@ -602,7 +602,10 @@ int BootstrapAndRun() {
     if (!deviceProvider.Resolve(device)) return 2;
     if (!incarnationProvider.Establish(incarnation)) return 3;
 
-    Identity::SystemIdentity identity(device, incarnation);
+    Identity::SystemIdentity identity(
+        device,
+        incarnation
+    );
     if (!identity.IsValid()) return 4;
 
     Consumer consumer(identity);
