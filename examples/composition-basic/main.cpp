@@ -32,6 +32,13 @@ namespace Example {
         >
     > {
 
+        private:
+
+            // Runtime state.
+
+            /// Indicates whether the example clock has completed initialization.
+            bool _initialized = false;
+
         public:
 
             // Public lifecycle.
@@ -50,13 +57,6 @@ namespace Example {
                 return 1000U;
             }
 
-        private:
-
-            // Runtime state.
-
-            /// Indicates whether the example clock has completed initialization.
-            bool _initialized = false;
-
     };
 
 
@@ -69,6 +69,13 @@ namespace Example {
 
     /// Owns and operates the runtime objects selected by the application composition.
     class ApplicationRuntime final {
+
+        private:
+
+            // Runtime providers.
+
+            /// Concrete provider selected by the composition for the SystemClock capability.
+            ApplicationComposition::ProviderFor<SystemClock> _clock;
 
         public:
 
@@ -83,13 +90,6 @@ namespace Example {
             int Run() {
                 return _clock.Now() > 0U ? 0 : 1;
             }
-
-        private:
-
-            // Runtime providers.
-
-            /// Concrete provider selected by the composition for the SystemClock capability.
-            ApplicationComposition::ProviderFor<SystemClock> _clock;
 
     };
 
