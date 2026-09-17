@@ -14,6 +14,26 @@ The following facilities are currently provided by the System library:
 - [System Identity](./docs/IDENTITY.MD)  
   Defines the memory-bounded permanent device identity and durable runtime-incarnation model, together with Composition capabilities for platform device identity and durable runtime-incarnation establishment.
 
+## Dependencies
+
+```text
+EDP-System
+└── no ESPressio library dependencies
+```
+
+`EDP-System` has no mandatory or optional ESPressio library dependencies.
+
+See [DEPENDENCY_GRAPH.MD](./DEPENDENCY_GRAPH.MD) for the maintained dependency graph and dependency classification.
+
+## Demos
+
+Buildable demonstrations are provided under [`./demos`](./demos):
+
+- `composition-basic`
+- `identity-basic`
+
+Each demonstration contains the policy-required Arduino IDE, PlatformIO Arduino, and PlatformIO ESP-IDF targets.
+
 ## Development Status
 
 The System library is being rebuilt progressively, beginning with the facilities upon which higher-level ESPressio libraries will depend.
