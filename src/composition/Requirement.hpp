@@ -206,9 +206,11 @@ namespace ESPressio::System::CompositionFramework {
         /// Determines whether the supplied property set satisfies this equality constraint.
         template<class TPropertySet>
         static constexpr bool IsSatisfied() {
-            if constexpr (!TPropertySet::template Contains<TProperty>) { return false; }
-
-            return TPropertySet::template Value<TProperty> == ExpectedValue;
+            if constexpr (!TPropertySet::template Contains<TProperty>) {
+                return false;
+            } else {
+                return TPropertySet::template Value<TProperty> == ExpectedValue;
+            }
         }
 
     };
@@ -247,9 +249,11 @@ namespace ESPressio::System::CompositionFramework {
         /// Determines whether the supplied property set satisfies this minimum-value constraint.
         template<class TPropertySet>
         static constexpr bool IsSatisfied() {
-            if constexpr (!TPropertySet::template Contains<TProperty>) { return false; }
-
-            return TPropertySet::template Value<TProperty> >= ExpectedValue;
+            if constexpr (!TPropertySet::template Contains<TProperty>) {
+                return false;
+            } else {
+                return TPropertySet::template Value<TProperty> >= ExpectedValue;
+            }
         }
 
     };
@@ -288,9 +292,11 @@ namespace ESPressio::System::CompositionFramework {
         /// Determines whether the supplied property set satisfies this maximum-value constraint.
         template<class TPropertySet>
         static constexpr bool IsSatisfied() {
-            if constexpr (!TPropertySet::template Contains<TProperty>) { return false; }
-
-            return TPropertySet::template Value<TProperty> <= ExpectedValue;
+            if constexpr (!TPropertySet::template Contains<TProperty>) {
+                return false;
+            } else {
+                return TPropertySet::template Value<TProperty> <= ExpectedValue;
+            }
         }
 
     };
@@ -329,9 +335,11 @@ namespace ESPressio::System::CompositionFramework {
         /// Determines whether the supplied property set satisfies this lower-bound constraint.
         template<class TPropertySet>
         static constexpr bool IsSatisfied() {
-            if constexpr (!TPropertySet::template Contains<TProperty>) { return false; }
-
-            return TPropertySet::template Value<TProperty> > ExpectedValue;
+            if constexpr (!TPropertySet::template Contains<TProperty>) {
+                return false;
+            } else {
+                return TPropertySet::template Value<TProperty> > ExpectedValue;
+            }
         }
 
     };
@@ -370,9 +378,11 @@ namespace ESPressio::System::CompositionFramework {
         /// Determines whether the supplied property set satisfies this upper-bound constraint.
         template<class TPropertySet>
         static constexpr bool IsSatisfied() {
-            if constexpr (!TPropertySet::template Contains<TProperty>) { return false; }
-
-            return TPropertySet::template Value<TProperty> < ExpectedValue;
+            if constexpr (!TPropertySet::template Contains<TProperty>) {
+                return false;
+            } else {
+                return TPropertySet::template Value<TProperty> < ExpectedValue;
+            }
         }
 
     };
