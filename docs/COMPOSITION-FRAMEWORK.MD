@@ -8,7 +8,10 @@ It allows code to describe, in a form the compiler can verify:
 - which providers supply those capabilities;
 - which capabilities each provider requires;
 - which compile-time properties a capability provider advertises;
-- which property values a consumer requires;
+- which open-ended compile-time Attributes qualify one capability Offer;
+- which property values and Attributes a consumer requires;
+- which provider uniquely satisfies a qualified Need;
+- whether same-domain requirements and cross-domain dependencies are structurally valid;
 - whether the complete collection of providers is valid.
 
 The framework is deliberately **not** a runtime dependency-injection container. It does not construct provider objects, own provider objects, allocate memory, start services, stop services, or decide runtime initialization order.
@@ -32,10 +35,12 @@ Runtime ownership and lifecycle remain ordinary C++ responsibilities.
 7. [Example 2 - Requirements and Properties](#example-2---requirements-and-properties)
 8. [Example 3 - Shared Capabilities](#example-3---shared-capabilities)
 9. [Example 4 - Consuming Composition from a Reusable Library](#example-4---consuming-composition-from-a-reusable-library)
-10. [Compile-Time Validation](#compile-time-validation)
-11. [Common Mistakes](#common-mistakes)
-12. [Choosing What Belongs in Composition](#choosing-what-belongs-in-composition)
-13. [Public Vocabulary Reference](#public-vocabulary-reference)
+10. [Qualified Provider Resolution](#qualified-provider-resolution)
+11. [Cross-Domain Architecture Validation](#cross-domain-architecture-validation)
+12. [Compile-Time Validation](#compile-time-validation)
+13. [Common Mistakes](#common-mistakes)
+14. [Choosing What Belongs in Composition](#choosing-what-belongs-in-composition)
+15. [Public Vocabulary Reference](#public-vocabulary-reference)
 
 ---
 
@@ -264,17 +269,34 @@ Examples include clock resolution, maximum packet size, or compile-time storage 
 
 Properties belong directly to capabilities. A clock property therefore cannot accidentally be attached to an unrelated radio capability.
 
+## Attribute
+
+An **Attribute** is open-ended compile-time metadata attached to one specific capability `Offer`.
+
+Attributes are intended to qualify **which otherwise-compatible provider is meant** without forcing every possible discriminator into the capability abstraction.
+
+Examples include:
+
+- `Frequency = 24917`;
+- `StorageType = "SD"`;
+- `Role = "Telemetry"`;
+- application-defined bus, position, channel, or identity descriptors.
+
+Attributes are C++20 compile-time values and are not a runtime registry or runtime string lookup surface.
+
 ## Constraint
 
-A **Constraint** describes an acceptable value for a required property.
+A **Constraint** describes an acceptable value for a required property or Attribute.
 
-The initial framework provides:
+Formal capability Properties support:
 
 - `Equals<TProperty, TValue>`;
 - `AtLeast<TProperty, TValue>`;
 - `AtMost<TProperty, TValue>`;
 - `GreaterThan<TProperty, TValue>`;
 - `LessThan<TProperty, TValue>`.
+
+Open Attributes currently support exact matching through `AttributeEquals<...>` and `TextAttributeEquals<...>`.
 
 ## Composition
 
@@ -1517,6 +1539,95 @@ This is the intended ESPressio architecture:
 
 ---
 
+# Qualified Provider Resolution
+
+A `SharedCapability` may legitimately have several concrete providers. Capability identity alone may therefore be insufficient for a reusable consumer that requires one particular provider.
+
+Providers can attach open-ended Attributes to an individual Offer:
+
+```cpp
+Composition::Offer<
+    Radio,
+    Composition::Attribute<
+        "Frequency",
+        24917U
+    >,
+    Composition::TextAttribute<
+        "Role",
+        "Telemetry"
+    >
+>
+```
+
+A consumer can then express the qualifier in its Need:
+
+```cpp
+using TelemetryRadioRequirement = Composition::Need<
+    Radio,
+    Composition::AttributeEquals<
+        "Frequency",
+        24917U
+    >,
+    Composition::TextAttributeEquals<
+        "Role",
+        "Telemetry"
+    >
+>;
+```
+
+A Composition exposes qualified count, predicate, plural, and singular queries:
+
+```cpp
+ApplicationComposition::ProviderCountSatisfying<TelemetryRadioRequirement>
+ApplicationComposition::HasProviderSatisfying<TelemetryRadioRequirement>
+ApplicationComposition::ProvidersSatisfying<TelemetryRadioRequirement>
+ApplicationComposition::ProviderSatisfying<TelemetryRadioRequirement>
+```
+
+`ProviderSatisfying<TNeed>` requires exactly one matching provider. Zero matches and ambiguous multiple matches are compile-time errors.
+
+Existing `ProviderFor<TCapability>` and `ProvidersFor<TCapability>` semantics remain unchanged.
+
+For the complete contract, including C++20 text Attributes, ambiguity handling, runtime-cost guarantees, and complete examples, see [Qualified Composition Resolution](./COMPOSITION-QUALIFIED-RESOLUTION.MD).
+
+---
+
+# Cross-Domain Architecture Validation
+
+`Requires<...>` remains a same-domain contract and retains its existing semantics.
+
+When a provider in one Domain depends on a capability from another Domain, it declares the dependency separately through `DependsOn<...>`:
+
+```cpp
+class TelemetryProvider final : public Composition::Provider<
+    ServiceDomain,
+    Composition::Provides<
+        Composition::Offer<TelemetryService>
+    >,
+    Composition::Requires<>,
+    Composition::DependsOn<
+        TelemetryRadioRequirement
+    >
+> {};
+```
+
+Each Domain is still validated independently by its own `Composition<...>`.
+
+A higher-level `Architecture<...>` validates the cross-domain dependencies across those already-valid Compositions:
+
+```cpp
+using ApplicationArchitecture = Composition::Architecture<
+    RadioComposition,
+    ServiceComposition
+>;
+```
+
+`Architecture` is compile-time structural validation only. It does not construct objects, own provider instances, allocate memory, establish lifecycle order, or perform runtime dependency injection.
+
+For the complete contract, see [Qualified Composition Resolution](./COMPOSITION-QUALIFIED-RESOLUTION.MD).
+
+---
+
 # Compile-Time Validation
 
 The framework rejects invalid architectures as early as possible.
@@ -1827,6 +1938,80 @@ Returns the compile-time provider list for a capability that may have multiple p
 ```cpp
 using CommunicationProviders = ApplicationComposition::ProvidersFor<CommunicationInterface>;
 ```
+
+## `Attribute<TName, TValue>`
+
+Attaches one open-ended compile-time descriptor to a capability Offer.
+
+```cpp
+Composition::Attribute<
+    "Frequency",
+    24917U
+>
+```
+
+## `TextAttribute<TName, TValue>`
+
+Convenience alias for a compile-time textual Attribute.
+
+```cpp
+Composition::TextAttribute<
+    "StorageType",
+    "SD"
+>
+```
+
+## `AttributeEquals<TName, TValue>`
+
+Requires an Attribute to exactly match one compile-time value.
+
+```cpp
+Composition::AttributeEquals<
+    "Frequency",
+    24917U
+>
+```
+
+## `TextAttributeEquals<TName, TValue>`
+
+Requires a textual Attribute to exactly match one compile-time string.
+
+```cpp
+Composition::TextAttributeEquals<
+    "StorageType",
+    "SD"
+>
+```
+
+## `ProviderSatisfying<TNeed>`
+
+Returns the single provider satisfying a complete qualified Need.
+
+```cpp
+using RadioProvider = ApplicationComposition::ProviderSatisfying<
+    TelemetryRadioRequirement
+>;
+```
+
+Exactly one provider must satisfy the Need.
+
+## `ProvidersSatisfying<TNeed>`
+
+Returns every provider satisfying a complete qualified Need.
+
+```cpp
+using RadioProviders = ApplicationComposition::ProvidersSatisfying<
+    BroadRadioRequirement
+>;
+```
+
+## `DependsOn<...>`
+
+Declares cross-domain capability Needs belonging to one provider without changing the same-domain meaning of `Requires<...>`.
+
+## `Architecture<...>`
+
+Combines already-valid Domain Compositions and validates their providers' cross-domain `DependsOn<...>` requirements.
 
 ## Property Constraints
 
