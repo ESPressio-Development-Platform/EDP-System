@@ -1,4 +1,4 @@
 COMPONENT_ADD_INCLUDEDIRS := src
 COMPONENT_SRCDIRS := src
 
-CXXFLAGS += -std=gnu++17
+CXXFLAGS += -std=gnu++20
