@@ -39,6 +39,10 @@ namespace ESPressio::System::Tests::Composition {
     struct MaximumPayloadBytes final : Framework::Property<CommunicationInterface, std::uint16_t> {};
 
 
+    /// Optional preferred-interface marker intentionally advertised by only one provider.
+    struct PreferredInterface final : Framework::Property<CommunicationInterface, bool> {};
+
+
     /// Test provider supplying the SystemClock capability.
     struct ClockProvider final : Framework::Provider<
         PlatformDomain,
@@ -82,6 +86,10 @@ namespace ESPressio::System::Tests::Composition {
                     MaximumPayloadBytes,
                     1500U
                 >,
+                Framework::PropertyValue<
+                    PreferredInterface,
+                    true
+                >,
                 Framework::Attribute<
                     "Frequency",
                     24917
@@ -93,6 +101,10 @@ namespace ESPressio::System::Tests::Composition {
                 Framework::TextAttribute<
                     "Band",
                     "2.4GHz"
+                >,
+                Framework::TextAttribute<
+                    "Purpose",
+                    "Primary"
                 >
             >
         >
@@ -162,6 +174,26 @@ namespace ESPressio::System::Tests::Composition {
         Framework::AttributeEquals<
             "Frequency",
             12345
+        >
+    >;
+
+
+    /// Requirement whose Attribute is intentionally absent from one otherwise-compatible provider.
+    using PrimaryPurposeRequirement = Framework::Need<
+        CommunicationInterface,
+        Framework::TextAttributeEquals<
+            "Purpose",
+            "Primary"
+        >
+    >;
+
+
+    /// Requirement whose Property is intentionally absent from one otherwise-compatible provider.
+    using PreferredInterfaceRequirement = Framework::Need<
+        CommunicationInterface,
+        Framework::Equals<
+            PreferredInterface,
+            true
         >
     >;
 
@@ -303,6 +335,32 @@ namespace ESPressio::System::Tests::Composition {
     static_assert(
         !PlatformComposition::HasProviderSatisfying<MissingFrequencyRequirement>,
         "Expected an unmatched qualified requirement to report no satisfying provider"
+    );
+
+    static_assert(
+        PlatformComposition::ProviderCountSatisfying<PrimaryPurposeRequirement> == 1U,
+        "Expected a provider missing the requested Attribute to be filtered out rather than rejected"
+    );
+
+    static_assert(
+        std::is_same_v<
+            PlatformComposition::ProviderSatisfying<PrimaryPurposeRequirement>,
+            WifiProvider
+        >,
+        "Expected the provider advertising the requested optional Attribute to resolve"
+    );
+
+    static_assert(
+        PlatformComposition::ProviderCountSatisfying<PreferredInterfaceRequirement> == 1U,
+        "Expected a provider missing the requested Property to be filtered out rather than rejected"
+    );
+
+    static_assert(
+        std::is_same_v<
+            PlatformComposition::ProviderSatisfying<PreferredInterfaceRequirement>,
+            WifiProvider
+        >,
+        "Expected the provider advertising the requested optional Property to resolve"
     );
 
     static_assert(
