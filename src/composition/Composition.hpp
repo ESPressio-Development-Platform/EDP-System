@@ -380,13 +380,30 @@ namespace ESPressio::System::CompositionFramework {
         template<class TNeed>
         static constexpr bool HasProviderSatisfying = ProviderCountSatisfying<TNeed> > 0U;
 
+        /// Resolves every provider satisfying one complete Need declaration.
+        template<class TNeed>
+        struct ResolveProvidersSatisfying {
+
+            static_assert(
+                ValidateNeed<TNeed>::IsValid,
+                "ProvidersSatisfying requires a Need belonging to this Composition domain"
+            );
+
+            // Resolution result.
+
+            /// Provider list containing every provider satisfying the requested Need.
+            using Type = typename Detail::FilterSatisfyingProviders<
+                TNeed,
+                ProviderList<>,
+                TProviders...
+            >::Type;
+
+        };
+
+
         /// Returns every provider satisfying one complete Need declaration.
         template<class TNeed>
-        using ProvidersSatisfying = typename Detail::FilterSatisfyingProviders<
-            TNeed,
-            ProviderList<>,
-            TProviders...
-        >::Type;
+        using ProvidersSatisfying = typename ResolveProvidersSatisfying<TNeed>::Type;
 
         /// Resolves the single provider satisfying one complete Need declaration.
         template<class TNeed>
