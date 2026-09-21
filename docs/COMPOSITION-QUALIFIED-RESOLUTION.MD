@@ -105,9 +105,9 @@ Framework::Attribute<
 >
 ```
 
-The text is architectural compile-time metadata. The Composition Framework provides no runtime descriptor registry or runtime lookup API.
+The text is architectural compile-time metadata. The Composition Framework provides no runtime descriptor registry, runtime lookup API, or public Attribute-value accessor. Attribute names and values are retained as template metadata used by compile-time matching rather than as runtime state.
 
-If consuming application code deliberately materializes compile-time metadata at runtime, that application code becomes responsible for the resulting runtime cost. Runtime materialization is not part of the Composition contract.
+Application code should not attempt to materialize Attribute descriptors at runtime. Runtime descriptor exposure is outside the Composition contract.
 
 ### Attribute names are open
 
@@ -376,14 +376,15 @@ For example, a Persistence-domain concrete provider may declare a need for a Pla
 
 Attributes are intended solely for compile-time architectural selection.
 
-The Composition Framework introduces no deliberate runtime:
+The Composition Framework introduces no runtime:
 
-- heap allocation;
-- RAM registry;
+- heap allocation for Attributes;
+- RAM descriptor registry;
 - provider lookup;
 - descriptor lookup;
+- Attribute-value accessor;
 - string comparison;
-- dynamic dispatch.
+- dynamic dispatch for resolution.
 
 Compile-time text is represented using C++20 structural values and participates in template resolution.
 
