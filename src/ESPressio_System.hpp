@@ -1,4 +1,4 @@
 #pragma once
 
-#include "composition/Composition.hpp"
+#include "composition/Architecture.hpp"
 #include "identity/Identity.hpp"
