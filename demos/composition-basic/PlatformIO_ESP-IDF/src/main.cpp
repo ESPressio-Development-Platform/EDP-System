@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <type_traits>
 
 #include <ESPressio_System.hpp>
 
@@ -6,68 +7,158 @@ namespace Demo {
 
     namespace Framework = ESPressio::System::CompositionFramework;
 
-    /// Composition domain used by this demonstration.
-    struct Domain final : Framework::Domain {};
+    /// Composition domain containing the demonstration Radio capability.
+    struct RadioDomain final : Framework::Domain {};
 
 
-    /// Exclusive counter capability selected by application Composition.
-    struct Counter final : Framework::ExclusiveCapability<Domain> {};
+    /// Composition domain containing a service that consumes qualified Radio providers.
+    struct ServiceDomain final : Framework::Domain {};
 
 
-    /// Concrete provider selected for the Counter capability.
-    class CounterProvider final : public Framework::Provider<
-        Domain,
+    /// Shared Radio capability with multiple valid concrete providers.
+    struct Radio final : Framework::SharedCapability<RadioDomain> {};
+
+
+    /// Service capability whose provider requires two specifically-qualified Radios.
+    struct TelemetryService final : Framework::ExclusiveCapability<ServiceDomain> {};
+
+
+    /// First concrete Radio provider distinguished only by compile-time Attributes.
+    class FrequencyXRadio final : public Framework::Provider<
+        RadioDomain,
         Framework::Provides<
-            Framework::Offer<Counter>
+            Framework::Offer<
+                Radio,
+                Framework::Attribute<
+                    "Frequency",
+                    24917U
+                >,
+                Framework::TextAttribute<
+                    "Role",
+                    "Telemetry"
+                >
+            >
         >
-    > {
-    private:
-
-        // Demonstration state.
-
-        /// Current counter value.
-        std::uint32_t _value{0U};
-
-    public:
-
-        // Counter operation.
-
-        /// Increments the demonstration counter.
-        void Increment() noexcept {
-            ++_value;
-        }
-
-        /// Returns the current demonstration counter value.
-        std::uint32_t Value() const noexcept {
-            return _value;
-        }
-
-    };
+    > {};
 
 
-    /// Complete compile-time application architecture.
-    using ApplicationComposition = Framework::Composition<
-        Domain,
-        CounterProvider
+    /// Second concrete Radio provider distinguished only by compile-time Attributes.
+    class FrequencyYRadio final : public Framework::Provider<
+        RadioDomain,
+        Framework::Provides<
+            Framework::Offer<
+                Radio,
+                Framework::Attribute<
+                    "Frequency",
+                    58124U
+                >,
+                Framework::TextAttribute<
+                    "Role",
+                    "Control"
+                >
+            >
+        >
+    > {};
+
+
+    /// Requirement selecting the Telemetry Radio without naming its concrete implementation.
+    using TelemetryRadioRequirement = Framework::Need<
+        Radio,
+        Framework::AttributeEquals<
+            "Frequency",
+            24917U
+        >,
+        Framework::TextAttributeEquals<
+            "Role",
+            "Telemetry"
+        >
+    >;
+
+
+    /// Requirement selecting the Control Radio without naming its concrete implementation.
+    using ControlRadioRequirement = Framework::Need<
+        Radio,
+        Framework::AttributeEquals<
+            "Frequency",
+            58124U
+        >,
+        Framework::TextAttributeEquals<
+            "Role",
+            "Control"
+        >
+    >;
+
+
+    /// Service provider declaring cross-domain dependencies on both qualified Radio providers.
+    class TelemetryServiceProvider final : public Framework::Provider<
+        ServiceDomain,
+        Framework::Provides<
+            Framework::Offer<TelemetryService>
+        >,
+        Framework::Requires<>,
+        Framework::DependsOn<
+            TelemetryRadioRequirement,
+            ControlRadioRequirement
+        >
+    > {};
+
+
+    /// Radio-domain Composition containing both otherwise-compatible Radio implementations.
+    using RadioComposition = Framework::Composition<
+        RadioDomain,
+        FrequencyXRadio,
+        FrequencyYRadio
+    >;
+
+
+    /// Service-domain Composition containing the cross-domain consumer.
+    using ServiceComposition = Framework::Composition<
+        ServiceDomain,
+        TelemetryServiceProvider
+    >;
+
+
+    /// Complete architecture validating the service's cross-domain Radio dependencies.
+    using ApplicationArchitecture = Framework::Architecture<
+        RadioComposition,
+        ServiceComposition
+    >;
+
+
+    /// Concrete Telemetry Radio selected entirely from compile-time capability and Attribute requirements.
+    using TelemetryRadioProvider = ApplicationArchitecture::ProviderSatisfying<
+        TelemetryRadioRequirement
+    >;
+
+    /// Concrete Control Radio selected entirely from compile-time capability and Attribute requirements.
+    using ControlRadioProvider = ApplicationArchitecture::ProviderSatisfying<
+        ControlRadioRequirement
     >;
 
 
     static_assert(
-        ApplicationComposition::IsValid,
-        "Demonstration Composition must be valid"
+        ApplicationArchitecture::IsValid,
+        "Demonstration Architecture must satisfy every cross-domain dependency"
+    );
+
+    static_assert(
+        std::is_same_v<TelemetryRadioProvider, FrequencyXRadio>,
+        "Telemetry requirement must resolve FrequencyXRadio"
+    );
+
+    static_assert(
+        std::is_same_v<ControlRadioProvider, FrequencyYRadio>,
+        "Control requirement must resolve FrequencyYRadio"
     );
 
 
-    /// Runs the Composition Framework demonstration.
+    /// Completes the demonstration after all meaningful work has been validated at compile time.
     int Run() noexcept {
-        ApplicationComposition::ProviderFor<Counter> counter;
-
-        counter.Increment();
-
-        return counter.Value() == 1U ? 0 : 1;
+        return 0;
     }
 
 } // Demo
+
 
 /// Runs the demonstration from the ESP-IDF application entry point.
 extern "C" void app_main() {
