@@ -46,7 +46,8 @@ namespace ESPressio::System::CompositionFramework {
                 typename TProvider::ProviderDeclarationTag,
                 typename TProvider::CompositionDomain,
                 typename TProvider::CompositionCapabilities,
-                typename TProvider::CompositionRequirements
+                typename TProvider::CompositionRequirements,
+                typename TProvider::CompositionDependencies
             >
         > : std::bool_constant<
             std::is_same_v<typename TProvider::CompositionDomain, TDomain> &&
@@ -143,8 +144,8 @@ namespace ESPressio::System::CompositionFramework {
         /// Evaluates a capability requirement against a provider that supplies the required capability.
         template<class TProvider, class TNeed>
         struct ProviderSatisfiesNeed<TProvider, TNeed, true> : std::bool_constant<
-            TNeed::template PropertiesSatisfied<
-                typename TProvider::CompositionCapabilities::template PropertiesFor<typename TNeed::CapabilityType>
+            TNeed::template OfferSatisfied<
+                typename TProvider::CompositionCapabilities::template OfferFor<typename TNeed::CapabilityType>
             >
         > {};
 
@@ -153,6 +154,75 @@ namespace ESPressio::System::CompositionFramework {
         template<class TNeed, class... TProviders>
         inline constexpr std::size_t SatisfyingProviderCountV =
             (std::size_t{0U} + ... + (ProviderSatisfiesNeed<TProviders, TNeed>::value ? std::size_t{1U} : std::size_t{0U}));
+
+
+        /// Selects the first provider satisfying one complete capability requirement.
+        template<class TNeed, class... TProviders>
+        struct FirstSatisfyingProvider;
+
+
+        /// Represents an unsuccessful satisfying-provider lookup.
+        template<class TNeed>
+        struct FirstSatisfyingProvider<TNeed> {
+
+            // Lookup result.
+
+            /// Type returned when no provider satisfies the requested Need.
+            using Type = void;
+
+        };
+
+
+        /// Continues a satisfying-provider lookup until one provider satisfies the requested Need.
+        template<class TNeed, class TFirstProvider, class... TRestProviders>
+        struct FirstSatisfyingProvider<TNeed, TFirstProvider, TRestProviders...> {
+
+            // Lookup result.
+
+            /// First provider satisfying the Need, or the result of searching the remaining providers.
+            using Type = std::conditional_t<
+                ProviderSatisfiesNeed<TFirstProvider, TNeed>::value,
+                TFirstProvider,
+                typename FirstSatisfyingProvider<TNeed, TRestProviders...>::Type
+            >;
+
+        };
+
+
+        /// Filters a provider pack to providers satisfying one complete capability requirement.
+        template<class TNeed, class TAccumulatedProviders, class... TProviders>
+        struct FilterSatisfyingProviders;
+
+
+        /// Completes satisfying-provider filtering when no providers remain to inspect.
+        template<class TNeed, class... TAccumulatedProviders>
+        struct FilterSatisfyingProviders<TNeed, ProviderList<TAccumulatedProviders...>> {
+
+            // Filtering result.
+
+            /// Provider list accumulated during filtering.
+            using Type = ProviderList<TAccumulatedProviders...>;
+
+        };
+
+
+        /// Adds providers satisfying the Need to the accumulated list and continues filtering.
+        template<class TNeed, class... TAccumulatedProviders, class TFirstProvider, class... TRestProviders>
+        struct FilterSatisfyingProviders<TNeed, ProviderList<TAccumulatedProviders...>, TFirstProvider, TRestProviders...> {
+
+            // Filtering state.
+
+            /// Provider list to use for the next filtering step.
+            using NextProviders = std::conditional_t<
+                ProviderSatisfiesNeed<TFirstProvider, TNeed>::value,
+                ProviderList<TAccumulatedProviders..., TFirstProvider>,
+                ProviderList<TAccumulatedProviders...>
+            >;
+
+            /// Final provider list returned after the remaining providers are inspected.
+            using Type = typename FilterSatisfyingProviders<TNeed, NextProviders, TRestProviders...>::Type;
+
+        };
 
 
         /// Determines whether all requirements in a Requires declaration are satisfied by a provider pack.
@@ -204,7 +274,7 @@ namespace ESPressio::System::CompositionFramework {
         static constexpr bool NoCapabilityConflicts =
             (Detail::ProvidesIsConflictFree<typename TProviders::CompositionCapabilities, TDomain, TProviders...>::value && ...);
 
-        /// Indicates whether every provider requirement is satisfied by the complete provider set.
+        /// Indicates whether every same-domain provider requirement is satisfied by the complete provider set.
         static constexpr bool AllRequirementsSatisfied =
             (Detail::RequirementsSatisfied<typename TProviders::CompositionRequirements, TProviders...>::value && ...);
 
@@ -215,13 +285,19 @@ namespace ESPressio::System::CompositionFramework {
 
         static_assert(
             AllRequirementsSatisfied,
-            "Composition contains an unsatisfied provider requirement"
+            "Composition contains an unsatisfied same-domain provider requirement"
         );
 
         // Composition metadata.
 
+        /// Marker used to identify Composition declarations during architecture-level inspection.
+        using CompositionDeclarationTag = void;
+
         /// Domain represented by this composition.
         using CompositionDomain = TDomain;
+
+        /// Complete compile-time list of providers contained by this Composition.
+        using ProviderTypes = ProviderList<TProviders...>;
 
         /// Number of providers contained in this composition.
         static constexpr std::size_t ProviderCount = sizeof...(TProviders);
@@ -269,6 +345,75 @@ namespace ESPressio::System::CompositionFramework {
         template<class TCapability>
         using ProviderFor = typename ResolveProvider<TCapability>::Type;
 
+        // Qualified requirement queries.
+
+        /// Validates one Need before qualified provider resolution is attempted.
+        template<class TNeed>
+        struct ValidateNeed {
+
+            static_assert(
+                Detail::NeedTraits<TNeed>::IsValid,
+                "Qualified provider queries require a Need declaration"
+            );
+
+            static_assert(
+                std::is_same_v<typename TNeed::CompositionDomain, TDomain>,
+                "Qualified provider Need does not belong to this Composition domain"
+            );
+
+            // Validation result.
+
+            /// Indicates that the Need is valid for this Composition domain.
+            static constexpr bool IsValid = true;
+
+        };
+
+
+        /// Returns the number of providers satisfying one complete Need declaration.
+        template<class TNeed>
+        static constexpr std::size_t ProviderCountSatisfying =
+            ValidateNeed<TNeed>::IsValid
+                ? Detail::SatisfyingProviderCountV<TNeed, TProviders...>
+                : 0U;
+
+        /// Indicates whether at least one provider satisfies one complete Need declaration.
+        template<class TNeed>
+        static constexpr bool HasProviderSatisfying = ProviderCountSatisfying<TNeed> > 0U;
+
+        /// Returns every provider satisfying one complete Need declaration.
+        template<class TNeed>
+        using ProvidersSatisfying = typename Detail::FilterSatisfyingProviders<
+            TNeed,
+            ProviderList<>,
+            TProviders...
+        >::Type;
+
+        /// Resolves the single provider satisfying one complete Need declaration.
+        template<class TNeed>
+        struct ResolveProviderSatisfying {
+
+            static_assert(
+                ValidateNeed<TNeed>::IsValid,
+                "ProviderSatisfying requires a Need belonging to this Composition domain"
+            );
+
+            static_assert(
+                ProviderCountSatisfying<TNeed> == 1U,
+                "ProviderSatisfying requires exactly one provider satisfying the requested Need"
+            );
+
+            // Resolution result.
+
+            /// Provider type uniquely satisfying the requested Need.
+            using Type = typename Detail::FirstSatisfyingProvider<TNeed, TProviders...>::Type;
+
+        };
+
+
+        /// Returns the single provider satisfying one complete Need declaration.
+        template<class TNeed>
+        using ProviderSatisfying = typename ResolveProviderSatisfying<TNeed>::Type;
+
         // Provider property queries.
 
         /// Resolves the property set advertised by one provider for one capability.
@@ -313,6 +458,43 @@ namespace ESPressio::System::CompositionFramework {
         /// Returns the value advertised for a property by the single provider for a capability.
         template<class TCapability, class TProperty>
         static constexpr typename TProperty::ValueType PropertyValue = PropertiesFor<TCapability>::template Value<TProperty>;
+
+        // Provider Attribute queries.
+
+        /// Resolves the Attribute set advertised by one provider for one capability.
+        template<class TProvider, class TCapability>
+        struct ResolveProviderAttributes {
+
+            static_assert(
+                Detail::ContainsTypeV<TProvider, TProviders...>,
+                "Attribute query provider is not contained in this Composition"
+            );
+
+            static_assert(
+                IsCapabilityForV<TDomain, TCapability>,
+                "Attribute query capability does not belong to this Composition domain"
+            );
+
+            static_assert(
+                TProvider::CompositionCapabilities::template Contains<TCapability>,
+                "Attribute query provider does not supply the requested capability"
+            );
+
+            // Resolution result.
+
+            /// Attribute set advertised by the provider for the requested capability.
+            using Type = typename TProvider::CompositionCapabilities::template AttributesFor<TCapability>;
+
+        };
+
+
+        /// Returns the Attribute set advertised by a specific provider for a capability.
+        template<class TProvider, class TCapability>
+        using AttributesForProvider = typename ResolveProviderAttributes<TProvider, TCapability>::Type;
+
+        /// Returns the Attribute set advertised by the single provider for a capability.
+        template<class TCapability>
+        using AttributesFor = AttributesForProvider<ProviderFor<TCapability>, TCapability>;
 
     };
 
