@@ -270,15 +270,17 @@ namespace ESPressio::System::CompositionFramework {
         /// Indicates whether the requested Attribute exists and exactly matches the supplied compile-time value.
         template<FixedString TName, auto TExpectedValue>
         static constexpr bool Matches = []() constexpr {
-            if constexpr (!Contains<TName>) { return false; }
+            if constexpr (!Contains<TName>) {
+                return false;
+            } else {
+                constexpr auto actualValue = Resolve<TName>::Value;
 
-            constexpr auto actualValue = Resolve<TName>::Value;
+                if constexpr (requires { actualValue == TExpectedValue; }) {
+                    return actualValue == TExpectedValue;
+                }
 
-            if constexpr (requires { actualValue == TExpectedValue; }) {
-                return actualValue == TExpectedValue;
+                return false;
             }
-
-            return false;
         }();
 
     };
