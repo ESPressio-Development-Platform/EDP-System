@@ -9,7 +9,13 @@ This repository is currently undergoing redevelopment from a clean foundation. I
 The following facilities are currently provided by the System library:
 
 - [Composition Framework](./docs/COMPOSITION-FRAMEWORK.MD)  
-  Defines compile-time domains, capabilities, providers, requirements, properties, constraints, and complete system compositions.
+  Defines compile-time domains, capabilities, providers, requirements, properties, constraints, Attributes, qualified provider resolution, and complete system compositions.
+
+- [Qualified Composition Resolution](./docs/COMPOSITION-QUALIFIED-RESOLUTION.MD)  
+  Defines open compile-time provider Attributes, qualified SharedCapability resolution, cross-domain `DependsOn<>` dependencies, and multi-domain `Architecture<>` validation.
+
+- [C++20 Toolchain Baseline](./docs/CPP20-TOOLCHAIN.MD)  
+  Defines the required C++20 baseline, recommends PIOArduino for ESP32 Arduino builds, and documents compatible PlatformIO configuration.
 
 - [System Identity](./docs/IDENTITY.MD)  
   Defines the memory-bounded permanent device identity and durable runtime-incarnation model, together with Composition capabilities for platform device identity and durable runtime-incarnation establishment.
@@ -32,7 +38,9 @@ Buildable demonstrations are provided under [`./demos`](./demos):
 - `composition-basic`
 - `identity-basic`
 
-Each demonstration contains the policy-required Arduino IDE, PlatformIO Arduino, and PlatformIO ESP-IDF targets.
+Each demonstration contains the policy-required Arduino IDE, PlatformIO-compatible Arduino, and PlatformIO-compatible ESP-IDF targets.
+
+ESPressio requires C++20. The PlatformIO-compatible demo configurations use the maintained PIOArduino ESP32 platform package rather than the older Arduino-ESP32 package bundled by the official PlatformIO Espressif32 platform. See [C++20 Toolchain Baseline](./docs/CPP20-TOOLCHAIN.MD).
 
 ## Development Status
 
