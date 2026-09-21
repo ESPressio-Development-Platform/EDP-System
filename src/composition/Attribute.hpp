@@ -67,14 +67,7 @@ namespace ESPressio::System::CompositionFramework {
 
     /// Wraps one compile-time string so it can be used as a generic non-type template value.
     template<FixedString TValue>
-    struct TextValue {
-
-        // Compile-time text metadata.
-
-        /// Wrapped structural text value.
-        static constexpr auto Value = TValue;
-
-    };
+    struct TextValue {};
 
 
     /// Creates a generic compile-time text value usable wherever an auto non-type template parameter is accepted.
@@ -111,12 +104,6 @@ namespace ESPressio::System::CompositionFramework {
         /// Marker used to identify Attribute declarations during compile-time inspection.
         using AttributeTag = void;
 
-        /// Open-ended compile-time attribute name.
-        static constexpr auto Name = TName;
-
-        /// Compile-time descriptor value associated with the attribute name.
-        static constexpr auto Value = TValue;
-
     };
 
     /// Convenience alias for an Attribute whose value is compile-time text.
@@ -138,11 +125,11 @@ namespace ESPressio::System::CompositionFramework {
         };
 
 
-        /// Extracts metadata from an Attribute declaration.
-        template<class TAttribute>
+        /// Extracts compile-time metadata from one concrete Attribute declaration.
+        template<FixedString TName, auto TValue>
         struct AttributeTraits<
-            TAttribute,
-            std::void_t<typename TAttribute::AttributeTag>
+            Attribute<TName, TValue>,
+            void
         > {
 
             // Attribute metadata.
@@ -150,12 +137,19 @@ namespace ESPressio::System::CompositionFramework {
             /// Indicates whether the inspected type is a valid Attribute declaration.
             static constexpr bool IsValid = true;
 
+            /// Open-ended compile-time Attribute name.
+            static constexpr auto Name = TName;
+
+            /// Compile-time Attribute value used only by Composition matching.
+            static constexpr auto Value = TValue;
+
         };
 
 
         /// Indicates whether two Attribute declarations use the same open-ended name.
         template<class TLeftAttribute, class TRightAttribute>
-        inline constexpr bool SameAttributeNameV = TLeftAttribute::Name == TRightAttribute::Name;
+        inline constexpr bool SameAttributeNameV =
+            AttributeTraits<TLeftAttribute>::Name == AttributeTraits<TRightAttribute>::Name;
 
 
         /// Indicates whether every Attribute name in one pack is unique.
@@ -201,7 +195,7 @@ namespace ESPressio::System::CompositionFramework {
 
             /// Matching Attribute declaration, or the result of searching the remaining declarations.
             using Type = std::conditional_t<
-                TFirstAttribute::Name == TName,
+                AttributeTraits<TFirstAttribute>::Name == TName,
                 TFirstAttribute,
                 typename FindAttribute<TName, TRestAttributes...>::Type
             >;
@@ -257,15 +251,8 @@ namespace ESPressio::System::CompositionFramework {
             /// Attribute declaration associated with the requested name.
             using Type = typename Detail::FindAttribute<TName, TAttributes...>::Type;
 
-            /// Compile-time value associated with the requested Attribute.
-            static constexpr auto Value = Type::Value;
-
         };
 
-
-        /// Returns the compile-time value associated with the requested Attribute name.
-        template<FixedString TName>
-        static constexpr auto Value = Resolve<TName>::Value;
 
         /// Indicates whether the requested Attribute exists and exactly matches the supplied compile-time value.
         template<FixedString TName, auto TExpectedValue>
@@ -273,7 +260,8 @@ namespace ESPressio::System::CompositionFramework {
             if constexpr (!Contains<TName>) {
                 return false;
             } else {
-                constexpr auto actualValue = Resolve<TName>::Value;
+                using AttributeType = typename Resolve<TName>::Type;
+                constexpr auto actualValue = Detail::AttributeTraits<AttributeType>::Value;
 
                 if constexpr (requires { actualValue == TExpectedValue; }) {
                     return actualValue == TExpectedValue;
