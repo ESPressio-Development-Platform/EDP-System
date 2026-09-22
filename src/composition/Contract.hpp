@@ -481,28 +481,58 @@ namespace ESPressio::System::CompositionFramework {
         /// @tparam TRequirement Requirement being validated.
         template<class TDomain, class TRequirement>
         inline constexpr bool ProviderRequirementIsValidV =
-            RequirementTraits<TRequirement>::IsValid &&
             (
-                (
-                    TRequirement::Scope == RequirementScope::SameDomain &&
-                    std::is_same_v<typename TRequirement::CompositionDomain, TDomain>
-                ) ||
-                (
-                    TRequirement::Scope == RequirementScope::ExternalDomain &&
-                    !std::is_same_v<typename TRequirement::CompositionDomain, TDomain>
-                )
+                TRequirement::Scope == RequirementScope::SameDomain &&
+                std::is_same_v<typename TRequirement::CompositionDomain, TDomain>
+            ) ||
+            (
+                TRequirement::Scope == RequirementScope::ExternalDomain &&
+                !std::is_same_v<typename TRequirement::CompositionDomain, TDomain>
             );
 
 
         /// Validates one Contract clause against an owning provider Domain.
         ///
+        /// Unrelated relationship clauses are accepted here and validated by their dedicated specializations.
+        ///
         /// @tparam TDomain Domain owning the provider Contract.
         /// @tparam TClause Contract clause being inspected.
         template<class TDomain, class TClause>
-        struct ProviderClauseIsValid : std::bool_constant<
-            RequirementTraits<TClause>::IsValid
-                ? ProviderRequirementIsValidV<TDomain, TClause>
-                : true
+        struct ProviderClauseIsValid : std::true_type {};
+
+
+        /// Validates one direct Requirement against an owning provider Domain.
+        ///
+        /// @tparam TDomain Domain owning the provider Contract.
+        /// @tparam TCapability Capability requested by the Requirement.
+        /// @tparam TScope Scope attached to the Requirement.
+        /// @tparam TCardinality Provider cardinality attached to the Requirement.
+        /// @tparam TConstraints Qualification constraints attached to the Requirement.
+        template<
+            class TDomain,
+            class TCapability,
+            RequirementScope TScope,
+            class TCardinality,
+            class... TConstraints
+        >
+        struct ProviderClauseIsValid<
+            TDomain,
+            Requirement<
+                TCapability,
+                TScope,
+                TCardinality,
+                TConstraints...
+            >
+        > : std::bool_constant<
+            ProviderRequirementIsValidV<
+                TDomain,
+                Requirement<
+                    TCapability,
+                    TScope,
+                    TCardinality,
+                    TConstraints...
+                >
+            >
         > {};
 
 
@@ -577,6 +607,41 @@ namespace ESPressio::System::CompositionFramework {
                 : ProviderClauseIsValid<TDomain, TClause>::value;
 
 
+        /// Indicates whether one Contract clause is a direct Requirement with the supplied scope.
+        ///
+        /// @tparam TClause Contract clause being inspected.
+        /// @tparam TScope Requirement scope being matched.
+        template<class TClause, RequirementScope TScope>
+        struct DirectRequirementMatchesScope : std::false_type {};
+
+
+        /// Matches one direct Requirement against the supplied scope.
+        ///
+        /// @tparam TCapability Capability requested by the Requirement.
+        /// @tparam TRequirementScope Scope attached to the Requirement.
+        /// @tparam TCardinality Provider cardinality attached to the Requirement.
+        /// @tparam TConstraints Qualification constraints attached to the Requirement.
+        /// @tparam TScope Requirement scope being matched.
+        template<
+            class TCapability,
+            RequirementScope TRequirementScope,
+            class TCardinality,
+            class... TConstraints,
+            RequirementScope TScope
+        >
+        struct DirectRequirementMatchesScope<
+            Requirement<
+                TCapability,
+                TRequirementScope,
+                TCardinality,
+                TConstraints...
+            >,
+            TScope
+        > : std::bool_constant<
+            TRequirementScope == TScope
+        > {};
+
+
         /// Collects direct Requirements in one Contract matching the supplied scope.
         ///
         /// @tparam TScope Requirement scope to collect.
@@ -634,8 +699,10 @@ namespace ESPressio::System::CompositionFramework {
 
             /// Next Requirement list after conditionally adding the current direct Requirement.
             using NextRequirements = std::conditional_t<
-                RequirementTraits<TFirstClause>::IsValid &&
-                TFirstClause::Scope == TScope,
+                DirectRequirementMatchesScope<
+                    TFirstClause,
+                    TScope
+                >::value,
                 RequirementList<TRequirements..., TFirstClause>,
                 RequirementList<TRequirements...>
             >;
