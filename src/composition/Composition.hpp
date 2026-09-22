@@ -1,26 +1,169 @@
 #pragma once
 
 #include <cstddef>
+#include <tuple>
 #include <type_traits>
+#include <utility>
 
 #include "Provider.hpp"
+#include "Selection.hpp"
 
 namespace ESPressio::System::CompositionFramework {
 
-    /// Stores a compile-time list of provider types returned by a Composition query.
+    namespace Detail {
+
+        /// Resolves the first Type in one compile-time provider pack.
+        ///
+        /// @tparam TProviders Provider Types represented by the pack.
+        template<class... TProviders>
+        struct FirstProviderType {
+
+            /// Missing-provider sentinel used for an empty pack.
+            using Type = void;
+
+        };
+
+
+        /// Resolves the first Type in one non-empty provider pack.
+        ///
+        /// @tparam TFirstProvider First provider Type.
+        /// @tparam TRestProviders Remaining provider Types.
+        template<class TFirstProvider, class... TRestProviders>
+        struct FirstProviderType<TFirstProvider, TRestProviders...> {
+
+            /// First provider Type.
+            using Type = TFirstProvider;
+
+        };
+
+
+        /// Resolves the last Type in one compile-time provider pack.
+        ///
+        /// @tparam TProviders Provider Types represented by the pack.
+        template<class... TProviders>
+        struct LastProviderType {
+
+            /// Missing-provider sentinel used for an empty pack.
+            using Type = void;
+
+        };
+
+
+        /// Resolves the last Type in one single-provider pack.
+        ///
+        /// @tparam TProvider Only provider Type.
+        template<class TProvider>
+        struct LastProviderType<TProvider> {
+
+            /// Last provider Type.
+            using Type = TProvider;
+
+        };
+
+
+        /// Resolves the last Type in one multi-provider pack.
+        ///
+        /// @tparam TFirstProvider First provider Type.
+        /// @tparam TRestProviders Remaining provider Types.
+        template<class TFirstProvider, class... TRestProviders>
+        struct LastProviderType<TFirstProvider, TRestProviders...> : LastProviderType<TRestProviders...> {};
+
+    } // ESPressio::System::CompositionFramework::Detail
+
+
+    /// Stores a deterministic compile-time list of provider Types returned by Composition queries.
+    ///
+    /// @tparam TProviders Provider Types represented by this list in declaration order.
     template<class... TProviders>
     struct ProviderList {
 
         // Provider-list metadata.
 
-        /// Number of provider types contained in this list.
+        /// Number of provider Types contained in this list.
         static constexpr std::size_t Count = sizeof...(TProviders);
+
+        /// Indicates whether this provider list is empty.
+        static constexpr bool IsEmpty = Count == 0U;
+
+        /// First provider Type, or void when this list is empty.
+        using Front = typename Detail::FirstProviderType<TProviders...>::Type;
+
+        /// Last provider Type, or void when this list is empty.
+        using Back = typename Detail::LastProviderType<TProviders...>::Type;
+
 
         // Provider queries.
 
-        /// Indicates whether the specified provider type is contained in this list.
+        /// Indicates whether the specified provider Type is contained in this list.
+        ///
+        /// @tparam TProvider Provider Type being queried.
         template<class TProvider>
         static constexpr bool Contains = (std::is_same_v<TProvider, TProviders> || ...);
+
+        /// Indicates whether every supplied provider Type is contained in this list.
+        ///
+        /// @tparam TCandidates Provider Types whose complete presence is required.
+        template<class... TCandidates>
+        static constexpr bool ContainsAll = (Contains<TCandidates> && ...);
+
+        /// Indicates whether at least one supplied provider Type is contained in this list.
+        ///
+        /// @tparam TCandidates Provider Types of which any presence is sufficient.
+        template<class... TCandidates>
+        static constexpr bool ContainsAny = (Contains<TCandidates> || ...);
+
+
+        // Indexed provider access.
+
+        /// Resolves one provider Type by its zero-based list index.
+        ///
+        /// @tparam TIndex Zero-based provider index.
+        template<std::size_t TIndex>
+        struct ResolveAt {
+
+            static_assert(
+                TIndex < Count,
+                "ProviderList index is outside the represented provider range"
+            );
+
+            /// Provider Type at the requested index.
+            using Type = std::tuple_element_t<
+                TIndex,
+                std::tuple<TProviders...>
+            >;
+
+        };
+
+
+        /// Provider Type at the supplied zero-based index.
+        ///
+        /// @tparam TIndex Zero-based provider index.
+        template<std::size_t TIndex>
+        using At = typename ResolveAt<TIndex>::Type;
+
+
+        // Compile-time traversal.
+
+        /// Invokes one templated callable once for every represented provider Type in declaration order.
+        ///
+        /// The callable must support `operator()<TProvider>()` for every provider Type.
+        /// This operation retains no runtime state and is usable during constant evaluation.
+        ///
+        /// @tparam TCallable Templated callable Type.
+        /// @param callable Callable receiving each provider Type as a template argument.
+        template<class TCallable>
+        static constexpr void ForEachType(
+            TCallable&& callable
+        ) {
+            if constexpr (Count == 0U) {
+                static_cast<void>(callable);
+            } else {
+                (
+                    callable.template operator()<TProviders>(),
+                    ...
+                );
+            }
+        }
 
     };
 
