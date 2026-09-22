@@ -1195,9 +1195,21 @@ namespace ESPressio::System::CompositionFramework {
         /// Counts providers jointly satisfying every Requirement in one RequirementList.
         ///
         /// @tparam TRequirementList Requirements being jointly evaluated.
+        /// @tparam TProviderList Candidate provider Types.
+        template<class TRequirementList, class TProviderList>
+        struct JointlySatisfyingProviderCount;
+
+
+        /// Counts jointly satisfying providers in one concrete ProviderList.
+        ///
+        /// @tparam TRequirementList Requirements being jointly evaluated.
         /// @tparam TProviders Candidate provider Types.
         template<class TRequirementList, class... TProviders>
-        inline constexpr std::size_t JointlySatisfyingProviderCountV =
+        struct JointlySatisfyingProviderCount<
+            TRequirementList,
+            ProviderList<TProviders...>
+        > : std::integral_constant<
+            std::size_t,
             (
                 std::size_t{0U} +
                 ... +
@@ -1209,7 +1221,33 @@ namespace ESPressio::System::CompositionFramework {
                         ? std::size_t{1U}
                         : std::size_t{0U}
                 )
-            );
+            )
+        > {};
+
+
+        /// Counts providers satisfying one Requirement inside one ProviderList.
+        ///
+        /// @tparam TRequirement Requirement being evaluated.
+        /// @tparam TProviderList Candidate provider list.
+        template<class TRequirement, class TProviderList>
+        struct SatisfyingProviderCountInList;
+
+
+        /// Counts satisfying providers in one concrete provider pack.
+        ///
+        /// @tparam TRequirement Requirement being evaluated.
+        /// @tparam TProviders Candidate provider Types.
+        template<class TRequirement, class... TProviders>
+        struct SatisfyingProviderCountInList<
+            TRequirement,
+            ProviderList<TProviders...>
+        > : std::integral_constant<
+            std::size_t,
+            SatisfyingProviderCountV<
+                TRequirement,
+                TProviders...
+            >
+        > {};
 
 
         /// Indicates whether every Requirement in one RequirementList has the supplied scope.
@@ -1222,9 +1260,9 @@ namespace ESPressio::System::CompositionFramework {
 
         /// Evaluates one Requirement pack for a common scope.
         ///
-        /// @tparam TRequirements Requirements being inspected.
         /// @tparam TScope Scope required from every Requirement.
-        template<class... TRequirements, RequirementScope TScope>
+        /// @tparam TRequirements Requirements being inspected.
+        template<RequirementScope TScope, class... TRequirements>
         struct RequirementsHaveScope<
             RequirementList<TRequirements...>,
             TScope
@@ -1331,13 +1369,13 @@ namespace ESPressio::System::CompositionFramework {
 
         /// Assigns the first Requirement and recursively assigns every remaining Requirement.
         ///
+        /// @tparam TAvailableProviders Provider Types available for distinct assignment.
         /// @tparam TFirstRequirement Current Requirement being assigned.
         /// @tparam TRestRequirements Remaining Requirements.
-        /// @tparam TAvailableProviders Provider Types available for distinct assignment.
         template<
+            class TAvailableProviders,
             class TFirstRequirement,
-            class... TRestRequirements,
-            class TAvailableProviders
+            class... TRestRequirements
         >
         struct DistinctAssignmentExists<
             RequirementList<
@@ -1358,24 +1396,24 @@ namespace ESPressio::System::CompositionFramework {
         /// Cross-domain clauses are deferred until Architecture validation.
         ///
         /// @tparam TClause Contract clause being evaluated.
-        /// @tparam TProviders Providers participating in the Composition.
-        template<class TClause, class... TProviders>
+        /// @tparam TProviderList Providers participating in the Composition.
+        template<class TClause, class TProviderList>
         struct ContractClauseSatisfiedInComposition : std::true_type {};
 
 
         /// Evaluates one direct consolidated Requirement inside a Composition.
         ///
+        /// @tparam TProviderList Providers participating in the Composition.
         /// @tparam TCapability Requested Capability.
         /// @tparam TScope Requirement scope.
         /// @tparam TCardinality Accepted satisfying-provider count.
         /// @tparam TConstraints Requirement qualification constraints.
-        /// @tparam TProviders Providers participating in the Composition.
         template<
+            class TProviderList,
             class TCapability,
             RequirementScope TScope,
             class TCardinality,
-            class... TConstraints,
-            class... TProviders
+            class... TConstraints
         >
         struct ContractClauseSatisfiedInComposition<
             Requirement<
@@ -1384,7 +1422,7 @@ namespace ESPressio::System::CompositionFramework {
                 TCardinality,
                 TConstraints...
             >,
-            TProviders...
+            TProviderList
         > : std::bool_constant<
             TScope != RequirementScope::SameDomain ||
             RequirementCardinalitySatisfied<
@@ -1394,47 +1432,47 @@ namespace ESPressio::System::CompositionFramework {
                     TCardinality,
                     TConstraints...
                 >,
-                SatisfyingProviderCountV<
+                SatisfyingProviderCountInList<
                     Requirement<
                         TCapability,
                         TScope,
                         TCardinality,
                         TConstraints...
                     >,
-                    TProviders...
-                >
+                    TProviderList
+                >::value
             >::value
         > {};
 
 
         /// Evaluates one SameProvider clause when it targets the owning Composition Domain.
         ///
+        /// @tparam TProviderList Providers participating in the Composition.
         /// @tparam TRequirements Requirements which must be jointly satisfied.
-        /// @tparam TProviders Providers participating in the Composition.
-        template<class... TRequirements, class... TProviders>
+        template<class TProviderList, class... TRequirements>
         struct ContractClauseSatisfiedInComposition<
             SameProvider<TRequirements...>,
-            TProviders...
+            TProviderList
         > : std::bool_constant<
             !RequirementsHaveScope<
                 RequirementList<TRequirements...>,
                 RequirementScope::SameDomain
             >::value ||
-            JointlySatisfyingProviderCountV<
+            JointlySatisfyingProviderCount<
                 RequirementList<TRequirements...>,
-                TProviders...
-            > > 0U
+                TProviderList
+            >::value > 0U
         > {};
 
 
         /// Evaluates one DistinctProviders clause when it targets only the owning Composition Domain.
         ///
+        /// @tparam TProviderList Providers participating in the Composition.
         /// @tparam TRequirements Requirements requiring distinct assignment.
-        /// @tparam TProviders Providers participating in the Composition.
-        template<class... TRequirements, class... TProviders>
+        template<class TProviderList, class... TRequirements>
         struct ContractClauseSatisfiedInComposition<
             DistinctProviders<TRequirements...>,
-            TProviders...
+            TProviderList
         > : std::bool_constant<
             !RequirementsHaveScope<
                 RequirementList<TRequirements...>,
@@ -1442,63 +1480,69 @@ namespace ESPressio::System::CompositionFramework {
             >::value ||
             DistinctAssignmentExists<
                 RequirementList<TRequirements...>,
-                ProviderList<TProviders...>
+                TProviderList
             >::value
         > {};
 
 
-        /// Evaluates one lifecycle target inside a Composition when it uses SameDomain scope.
+        /// Evaluates one initialization lifecycle target when it uses SameDomain scope.
         ///
+        /// @tparam TProviderList Providers participating in the Composition.
         /// @tparam TRequirement Lifecycle target Requirement.
-        /// @tparam TProviders Providers participating in the Composition.
-        template<class TRequirement, class... TProviders>
+        template<class TProviderList, class TRequirement>
         struct ContractClauseSatisfiedInComposition<
             InitializesAfter<TRequirement>,
-            TProviders...
+            TProviderList
         > : std::bool_constant<
             TRequirement::Scope != RequirementScope::SameDomain ||
-            SatisfyingProviderCountV<
+            SatisfyingProviderCountInList<
                 TRequirement,
-                TProviders...
-            > == 1U
+                TProviderList
+            >::value == 1U
         > {};
 
 
-        /// Evaluates one shutdown lifecycle target inside a Composition when it uses SameDomain scope.
+        /// Evaluates one shutdown lifecycle target when it uses SameDomain scope.
         ///
+        /// @tparam TProviderList Providers participating in the Composition.
         /// @tparam TRequirement Lifecycle target Requirement.
-        /// @tparam TProviders Providers participating in the Composition.
-        template<class TRequirement, class... TProviders>
+        template<class TProviderList, class TRequirement>
         struct ContractClauseSatisfiedInComposition<
             ShutsDownBefore<TRequirement>,
-            TProviders...
+            TProviderList
         > : std::bool_constant<
             TRequirement::Scope != RequirementScope::SameDomain ||
-            SatisfyingProviderCountV<
+            SatisfyingProviderCountInList<
                 TRequirement,
-                TProviders...
-            > == 1U
+                TProviderList
+            >::value == 1U
         > {};
 
 
         /// Evaluates every clause in one consolidated provider Contract against a Composition.
         ///
         /// @tparam TContract Consolidated Contract or void for a temporary legacy provider.
-        /// @tparam TProviders Providers participating in the Composition.
-        template<class TContract, class... TProviders>
+        /// @tparam TProviderList Providers participating in the Composition.
+        template<class TContract, class TProviderList>
         struct ContractSatisfiedInComposition : std::true_type {};
 
 
         /// Evaluates every clause in one concrete Contract.
         ///
+        /// @tparam TProviderList Providers participating in the Composition.
         /// @tparam TClauses Contract clauses being evaluated.
-        /// @tparam TProviders Providers participating in the Composition.
-        template<class... TClauses, class... TProviders>
+        template<class TProviderList, class... TClauses>
         struct ContractSatisfiedInComposition<
             Contract<TClauses...>,
-            TProviders...
+            TProviderList
         > : std::bool_constant<
-            (ContractClauseSatisfiedInComposition<TClauses, TProviders...>::value && ...)
+            (
+                ContractClauseSatisfiedInComposition<
+                    TClauses,
+                    TProviderList
+                >::value &&
+                ...
+            )
         > {};
 
 
@@ -1621,7 +1665,7 @@ namespace ESPressio::System::CompositionFramework {
             (
                 Detail::ContractSatisfiedInComposition<
                     typename TProviders::CompositionContract,
-                    TProviders...
+                    ProviderList<TProviders...>
                 >::value &&
                 ...
             );
