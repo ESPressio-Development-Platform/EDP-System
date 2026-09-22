@@ -640,6 +640,28 @@ namespace ESPressio::System::Tests::CompositionContracts {
         LastTwoRadios
     >;
 
+    using UnionRadios = Framework::ProviderListUnion<
+        FirstTwoRadios,
+        LastTwoRadios
+    >;
+
+    template<class TProvider>
+    struct IsLowLatencyProvider : std::bool_constant<
+        std::is_same_v<
+            TProvider,
+            BleRadioProvider
+        > ||
+        std::is_same_v<
+            TProvider,
+            EspNowRadioProvider
+        >
+    > {};
+
+    using FilteredRadios = Framework::ProviderListFilter<
+        UnionRadios,
+        IsLowLatencyProvider
+    >;
+
     static_assert(
         ConcatenatedRadios::Count == 3U &&
         std::is_same_v<
@@ -663,6 +685,32 @@ namespace ESPressio::System::Tests::CompositionContracts {
         WifiOnly::Count == 1U &&
         WifiOnly::template Contains<WifiRadioProvider>,
         "ProviderList difference must remove providers represented by the right list"
+    );
+
+    static_assert(
+        UnionRadios::Count == 3U &&
+        std::is_same_v<
+            UnionRadios::template At<0U>,
+            WifiRadioProvider
+        > &&
+        std::is_same_v<
+            UnionRadios::Back,
+            EspNowRadioProvider
+        >,
+        "ProviderList union must remove duplicates while preserving declaration order"
+    );
+
+    static_assert(
+        FilteredRadios::Count == 2U &&
+        std::is_same_v<
+            FilteredRadios::Front,
+            BleRadioProvider
+        > &&
+        std::is_same_v<
+            FilteredRadios::Back,
+            EspNowRadioProvider
+        >,
+        "ProviderList filtering must preserve the order of matching provider Types"
     );
 
 } // ESPressio::System::Tests::CompositionContracts

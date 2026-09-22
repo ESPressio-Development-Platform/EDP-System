@@ -35,6 +35,7 @@ COMPILE_FAIL_TESTS = (
     ROOT / "tests" / "compile_fail" / "contract_best_match_tie.cpp",
     ROOT / "tests" / "compile_fail" / "contract_same_provider_cross_domain.cpp",
     ROOT / "tests" / "compile_fail" / "contract_lifecycle_cycle.cpp",
+    ROOT / "tests" / "compile_fail" / "contract_lifecycle_self_dependency.cpp",
 )
 
 COMMON_ARGUMENTS = (
