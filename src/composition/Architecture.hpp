@@ -745,10 +745,10 @@ namespace ESPressio::System::CompositionFramework {
         /// @tparam TInitializationOrder Whether initialization ordering is being derived.
         template<
             class TOrderedProviders,
-            class TFirstProvider,
-            class... TRestProviders,
             class TArchitectureProviders,
-            bool TInitializationOrder
+            bool TInitializationOrder,
+            class TFirstProvider,
+            class... TRestProviders
         >
         struct BuildLifecycleOrder<
             TOrderedProviders,

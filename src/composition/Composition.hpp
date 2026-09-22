@@ -425,9 +425,9 @@ namespace ESPressio::System::CompositionFramework {
         /// @tparam TRestProviders Remaining left provider Types.
         /// @tparam TRightProviders Right provider list.
         template<
+            class TRightProviders,
             class TFirstProvider,
-            class... TRestProviders,
-            class TRightProviders
+            class... TRestProviders
         >
         struct IntersectProviderLists<
             ProviderList<
@@ -490,9 +490,9 @@ namespace ESPressio::System::CompositionFramework {
         /// @tparam TRestProviders Remaining left provider Types.
         /// @tparam TRightProviders Provider Types excluded from the result.
         template<
+            class TRightProviders,
             class TFirstProvider,
-            class... TRestProviders,
-            class TRightProviders
+            class... TRestProviders
         >
         struct DifferenceProviderLists<
             ProviderList<
@@ -879,6 +879,48 @@ namespace ESPressio::System::CompositionFramework {
         }();
 
 
+        /// Indicates whether one candidate is tied for the best Property value in a ProviderList.
+        ///
+        /// @tparam TCandidate Candidate provider Type.
+        /// @tparam TProperty Property used for ordering.
+        /// @tparam TMinimize Whether lower values are preferred.
+        /// @tparam TProviderList Complete candidate ProviderList.
+        template<
+            class TCandidate,
+            class TProperty,
+            bool TMinimize,
+            class TProviderList
+        >
+        struct IsBestProviderInList;
+
+
+        /// Evaluates one candidate against a concrete provider pack.
+        ///
+        /// @tparam TCandidate Candidate provider Type.
+        /// @tparam TProperty Property used for ordering.
+        /// @tparam TMinimize Whether lower values are preferred.
+        /// @tparam TProviders Complete candidate provider pack.
+        template<
+            class TCandidate,
+            class TProperty,
+            bool TMinimize,
+            class... TProviders
+        >
+        struct IsBestProviderInList<
+            TCandidate,
+            TProperty,
+            TMinimize,
+            ProviderList<TProviders...>
+        > : std::bool_constant<
+            IsBestProviderV<
+                TCandidate,
+                TProperty,
+                TMinimize,
+                TProviders...
+            >
+        > {};
+
+
         /// Filters a ProviderList to every provider tied for one best Property value.
         ///
         /// @tparam TProperty Property used for ordering.
@@ -927,14 +969,14 @@ namespace ESPressio::System::CompositionFramework {
         template<
             class TProperty,
             bool TMinimize,
-            class... TCandidateProviders,
+            class TCandidates,
             class TFirstProvider,
             class... TRestProviders
         >
         struct FilterBestProviders<
             TProperty,
             TMinimize,
-            ProviderList<TCandidateProviders...>,
+            TCandidates,
             ProviderList<
                 TFirstProvider,
                 TRestProviders...
@@ -947,7 +989,7 @@ namespace ESPressio::System::CompositionFramework {
                 using Remaining = typename FilterBestProviders<
                     TProperty,
                     TMinimize,
-                    ProviderList<TCandidateProviders...>,
+                    TCandidates,
                     ProviderList<TRestProviders...>
                 >::Type;
 
@@ -956,12 +998,12 @@ namespace ESPressio::System::CompositionFramework {
 
                 /// Ordered best-provider result.
                 using Type = std::conditional_t<
-                    IsBestProviderV<
+                    IsBestProviderInList<
                         TFirstProvider,
                         TProperty,
                         TMinimize,
-                        TCandidateProviders...
-                    >,
+                        TCandidates
+                    >::value,
                     typename PrependProviderList<
                         TFirstProvider,
                         Remaining
