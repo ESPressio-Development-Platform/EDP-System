@@ -115,7 +115,7 @@ namespace ESPressio::System::CompositionFramework {
         );
 
         static_assert(
-            ((IsConstraintForV<TCapability, TConstraints> || IsAttributeConstraintV<TConstraints>) && ...),
+            (Detail::RequirementConstraintAppliesToCapability<TCapability, TConstraints>() && ...),
             "Requirement contains a constraint that cannot be applied to the requested capability"
         );
 
@@ -172,8 +172,13 @@ namespace ESPressio::System::CompositionFramework {
         ///
         /// @tparam TOffer Offer being inspected.
         template<class TOffer>
-        static constexpr bool OfferSatisfied =
-            (Detail::ConstraintSatisfiedByOffer<TConstraints, TOffer>::value && ...);
+        static constexpr bool OfferSatisfied = (
+            Detail::RequirementConstraintSatisfiedByOffer<
+                TConstraints,
+                TOffer
+            >() &&
+            ...
+        );
 
     };
 
