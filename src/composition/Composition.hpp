@@ -647,15 +647,70 @@ namespace ESPressio::System::CompositionFramework {
         };
 
 
+        /// Evaluates one Requirement's accepted provider count while preserving temporary legacy Need semantics.
+        ///
+        /// @tparam TRequirement Requirement or temporary legacy Need declaration.
+        /// @tparam TProviderCount Number of providers satisfying its qualification.
+        /// @tparam TEnable SFINAE helper used when consolidated cardinality metadata is present.
+        template<
+            class TRequirement,
+            std::size_t TProviderCount,
+            class TEnable = void
+        >
+        struct RequirementCardinalitySatisfied : std::bool_constant<
+            TProviderCount > 0U
+        > {};
+
+
+        /// Evaluates consolidated Requirement cardinality.
+        ///
+        /// @tparam TRequirement Consolidated Requirement declaration.
+        /// @tparam TProviderCount Number of providers satisfying its qualification.
+        template<
+            class TRequirement,
+            std::size_t TProviderCount
+        >
+        struct RequirementCardinalitySatisfied<
+            TRequirement,
+            TProviderCount,
+            std::void_t<
+                typename TRequirement::RequirementTag,
+                typename TRequirement::Cardinality
+            >
+        > : std::bool_constant<
+            TRequirement::AcceptsProviderCount(
+                TProviderCount
+            )
+        > {};
+
+
         /// Determines whether all requirements in a Requires declaration are satisfied by a provider pack.
+        ///
+        /// @tparam TRequires Same-domain Requirement container.
+        /// @tparam TProviders Providers participating in the Composition.
         template<class TRequires, class... TProviders>
         struct RequirementsSatisfied;
 
 
-        /// Evaluates every Need declaration contained in a Requires declaration.
-        template<class... TNeeds, class... TProviders>
-        struct RequirementsSatisfied<Requires<TNeeds...>, TProviders...> : std::bool_constant<
-            ((SatisfyingProviderCountV<TNeeds, TProviders...> > 0U) && ...)
+        /// Evaluates every Requirement contained in a Requires declaration.
+        ///
+        /// @tparam TRequirements Requirements being evaluated.
+        /// @tparam TProviders Providers participating in the Composition.
+        template<class... TRequirements, class... TProviders>
+        struct RequirementsSatisfied<
+            Requires<TRequirements...>,
+            TProviders...
+        > : std::bool_constant<
+            (
+                RequirementCardinalitySatisfied<
+                    TRequirements,
+                    SatisfyingProviderCountV<
+                        TRequirements,
+                        TProviders...
+                    >
+                >::value &&
+                ...
+            )
         > {};
 
 
