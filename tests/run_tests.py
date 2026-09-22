@@ -17,6 +17,7 @@ CXX = os.environ.get("CXX", "c++")
 
 POSITIVE_TESTS = (
     ROOT / "tests" / "composition" / "CompositionTests.cpp",
+    ROOT / "tests" / "composition" / "ContractTests.cpp",
     ROOT / "tests" / "composition" / "FlagPropertyTests.cpp",
     ROOT / "tests" / "composition" / "ProviderReferencesTests.cpp",
     ROOT / "tests" / "flags" / "FlagSetTests.cpp",
