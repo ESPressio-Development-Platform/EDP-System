@@ -7,7 +7,7 @@ It allows code to describe, in a form the compiler can verify:
 - what capabilities exist;
 - which providers supply those capabilities;
 - which capabilities each provider requires;
-- which compile-time properties a capability provider advertises;
+- which compile-time properties a capability provider advertises, including typed finite flag sets;
 - which open-ended compile-time Attributes qualify one capability Offer;
 - which property values and Attributes a consumer requires;
 - which provider uniquely satisfies a qualified Need;
@@ -269,6 +269,18 @@ Examples include clock resolution, maximum packet size, or compile-time storage 
 
 Properties belong directly to capabilities. A clock property therefore cannot accidentally be attached to an unrelated radio capability.
 
+### Flag-valued Property
+
+A `FlagProperty` is a specialised Property for one finite set of orthogonal capability features.
+
+Providers advertise flags through `FlagPropertyValue`, and consumers can constrain them with `HasAllFlags`, `HasAnyFlags`, or `HasNoFlags`.
+
+Flag enum values are zero-based bit positions following the same contract as `ESPressio::System::FlagSet`; callers do not maintain raw masks for normal typed use.
+
+Flag-valued Properties remain ordinary Composition Properties internally, so existing Property queries and provider-resolution semantics are preserved.
+
+For the complete contract, examples, misuse boundaries, storage semantics, and diagnostics, see [Composition Flag Properties](./COMPOSITION-FLAG-PROPERTIES.MD).
+
 ## Attribute
 
 An **Attribute** is open-ended compile-time metadata attached to one specific capability `Offer`.
@@ -295,6 +307,12 @@ Formal capability Properties support:
 - `AtMost<TProperty, TValue>`;
 - `GreaterThan<TProperty, TValue>`;
 - `LessThan<TProperty, TValue>`.
+
+Flag-valued Properties additionally support:
+
+- `HasAllFlags<TProperty, ...>`;
+- `HasAnyFlags<TProperty, ...>`;
+- `HasNoFlags<TProperty, ...>`.
 
 Open Attributes currently support exact matching through `AttributeEquals<...>` and `TextAttributeEquals<...>`.
 
@@ -1676,6 +1694,14 @@ Composition::PropertyValue<
 
 The Composition is rejected during compilation.
 
+## Flag Property Requirement Not Satisfied
+
+A provider advertises a flag-valued Property but does not contain the all/any/none feature relationship required by a `Need`.
+
+That provider does not satisfy the Need and is excluded by the existing provider-matching machinery.
+
+A typed flag advertisement or constraint using the wrong enum domain, an out-of-range flag position, or an empty all/any/none constraint is rejected during compilation.
+
 ## Wrong Domain
 
 A capability, provider, or requirement from one Composition Domain is accidentally placed into another Domain.
@@ -1781,8 +1807,11 @@ Good examples include:
 - this provider supplies a System Clock;
 - this provider requires Persistent Storage;
 - this radio supports a maximum packet size of 250 bytes;
+- this radio supports Broadcast, ReliableDelivery, and ReceiveTimestamp feature flags;
 - this scheduler requires a clock resolution of at most one microsecond;
 - this application contains three shared communication interfaces.
+
+A finite flag-valued Property is appropriate when several orthogonal compile-time characteristics belong to **one** capability. It must not be used to collapse separate architectural services such as Clock, Persistence, Radio, and Encryption into one feature mask.
 
 Composition should generally **not** describe runtime state.
 
@@ -1837,6 +1866,30 @@ Declares a compile-time property belonging specifically to one capability.
 ```cpp
 struct ClockResolutionNanoseconds final : Composition::Property<SystemClock, std::uint32_t> {};
 ```
+
+## `FlagProperty<TCapability, TFlag, TStorage>`
+
+Declares a compile-time Property whose value is a finite set of typed enum-domain flags.
+
+~~~cpp
+struct SupportedFeatures final : Composition::FlagProperty<
+    CommunicationInterface,
+    CommunicationFeature,
+    std::uint8_t
+> {};
+~~~
+
+## `FlagPropertyValue<TProperty, TFlags...>`
+
+Associates zero or more typed flags with a concrete `FlagProperty` in an `Offer`.
+
+~~~cpp
+Composition::FlagPropertyValue<
+    SupportedFeatures,
+    CommunicationFeature::Broadcast,
+    CommunicationFeature::ReceiveTimestamp
+>
+~~~
 
 ## `PropertyValue<TProperty, TValue>`
 
@@ -2024,5 +2077,13 @@ Composition::AtMost<TProperty, TValue>
 Composition::GreaterThan<TProperty, TValue>
 Composition::LessThan<TProperty, TValue>
 ```
+
+Flag-valued Properties additionally provide:
+
+~~~cpp
+Composition::HasAllFlags<TProperty, TFlags...>
+Composition::HasAnyFlags<TProperty, TFlags...>
+Composition::HasNoFlags<TProperty, TFlags...>
+~~~
 
 These constraints are evaluated during Composition validation rather than at runtime.
