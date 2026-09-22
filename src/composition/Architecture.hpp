@@ -343,6 +343,447 @@ namespace ESPressio::System::CompositionFramework {
         > {};
 
 
+        /// Indicates whether one lifecycle clause creates an ordering edge between two providers.
+        ///
+        /// @tparam TClause Contract clause being inspected.
+        /// @tparam TBefore Provider Type proposed before the other provider.
+        /// @tparam TAfter Provider Type proposed after the other provider.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        template<
+            class TClause,
+            class TBefore,
+            class TAfter,
+            class TArchitectureProviders,
+            bool TInitializationOrder
+        >
+        struct LifecycleClauseCreatesEdge : std::false_type {};
+
+
+        /// Creates an initialization edge from the uniquely selected predecessor to the owning provider.
+        ///
+        /// @tparam TBefore Candidate predecessor provider Type.
+        /// @tparam TAfter Provider Type owning the InitializesAfter clause.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TRequirement Requirement selecting the predecessor.
+        template<
+            class TBefore,
+            class TAfter,
+            class TArchitectureProviders,
+            class TRequirement
+        >
+        struct LifecycleClauseCreatesEdge<
+            InitializesAfter<TRequirement>,
+            TBefore,
+            TAfter,
+            TArchitectureProviders,
+            true
+        > : std::bool_constant<
+            ProviderSatisfiesNeed<
+                TBefore,
+                TRequirement
+            >::value
+        > {};
+
+
+        /// Creates a shutdown edge from the owning provider to the uniquely selected successor.
+        ///
+        /// @tparam TBefore Provider Type owning the ShutsDownBefore clause.
+        /// @tparam TAfter Candidate shutdown successor provider Type.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TRequirement Requirement selecting the successor.
+        template<
+            class TBefore,
+            class TAfter,
+            class TArchitectureProviders,
+            class TRequirement
+        >
+        struct LifecycleClauseCreatesEdge<
+            ShutsDownBefore<TRequirement>,
+            TBefore,
+            TAfter,
+            TArchitectureProviders,
+            false
+        > : std::bool_constant<
+            ProviderSatisfiesNeed<
+                TAfter,
+                TRequirement
+            >::value
+        > {};
+
+
+        /// Indicates whether one Contract establishes an ordering edge between two providers.
+        ///
+        /// @tparam TContract Contract being inspected.
+        /// @tparam TBefore Provider Type proposed before the other provider.
+        /// @tparam TAfter Provider Type proposed after the other provider.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        template<
+            class TContract,
+            class TBefore,
+            class TAfter,
+            class TArchitectureProviders,
+            bool TInitializationOrder
+        >
+        struct ContractCreatesLifecycleEdge : std::false_type {};
+
+
+        /// Evaluates every lifecycle clause in one consolidated Contract.
+        ///
+        /// @tparam TBefore Provider Type proposed before the other provider.
+        /// @tparam TAfter Provider Type proposed after the other provider.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        /// @tparam TClauses Contract clauses being inspected.
+        template<
+            class TBefore,
+            class TAfter,
+            class TArchitectureProviders,
+            bool TInitializationOrder,
+            class... TClauses
+        >
+        struct ContractCreatesLifecycleEdge<
+            Contract<TClauses...>,
+            TBefore,
+            TAfter,
+            TArchitectureProviders,
+            TInitializationOrder
+        > : std::bool_constant<
+            (
+                LifecycleClauseCreatesEdge<
+                    TClauses,
+                    TBefore,
+                    TAfter,
+                    TArchitectureProviders,
+                    TInitializationOrder
+                >::value ||
+                ...
+            )
+        > {};
+
+
+        /// Indicates whether one directed lifecycle edge exists between two providers.
+        ///
+        /// Initialization edges are declared by the after-provider's Contract.
+        /// Shutdown edges are declared by the before-provider's Contract.
+        ///
+        /// @tparam TBefore Provider Type proposed before the other provider.
+        /// @tparam TAfter Provider Type proposed after the other provider.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        template<
+            class TBefore,
+            class TAfter,
+            class TArchitectureProviders,
+            bool TInitializationOrder
+        >
+        inline constexpr bool LifecycleEdgeV = []() consteval {
+            if constexpr (std::is_same_v<TBefore, TAfter>) {
+                return false;
+            } else if constexpr (TInitializationOrder) {
+                return ContractCreatesLifecycleEdge<
+                    typename TAfter::CompositionContract,
+                    TBefore,
+                    TAfter,
+                    TArchitectureProviders,
+                    true
+                >::value;
+            } else {
+                return ContractCreatesLifecycleEdge<
+                    typename TBefore::CompositionContract,
+                    TBefore,
+                    TAfter,
+                    TArchitectureProviders,
+                    false
+                >::value;
+            }
+        }();
+
+
+        /// Indicates whether one provider has any incoming lifecycle edge from the remaining provider set.
+        ///
+        /// @tparam TCandidate Provider Type being tested for readiness.
+        /// @tparam TRemainingProviders Remaining providers in the topological sort.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        template<
+            class TCandidate,
+            class TRemainingProviders,
+            class TArchitectureProviders,
+            bool TInitializationOrder
+        >
+        struct HasIncomingLifecycleEdge;
+
+
+        /// Evaluates incoming edges from one concrete remaining provider pack.
+        ///
+        /// @tparam TCandidate Provider Type being tested for readiness.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        /// @tparam TProviders Remaining provider Types.
+        template<
+            class TCandidate,
+            class TArchitectureProviders,
+            bool TInitializationOrder,
+            class... TProviders
+        >
+        struct HasIncomingLifecycleEdge<
+            TCandidate,
+            ProviderList<TProviders...>,
+            TArchitectureProviders,
+            TInitializationOrder
+        > : std::bool_constant<
+            (
+                LifecycleEdgeV<
+                    TProviders,
+                    TCandidate,
+                    TArchitectureProviders,
+                    TInitializationOrder
+                > ||
+                ...
+            )
+        > {};
+
+
+        /// Finds the first declaration-order provider with no incoming lifecycle edge.
+        ///
+        /// @tparam TRemainingProviders Remaining providers in the topological sort.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        template<
+            class TRemainingProviders,
+            class TArchitectureProviders,
+            bool TInitializationOrder
+        >
+        struct FindLifecycleReadyProvider;
+
+
+        /// No provider can be selected from an empty set.
+        ///
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        template<
+            class TArchitectureProviders,
+            bool TInitializationOrder
+        >
+        struct FindLifecycleReadyProvider<
+            ProviderList<>,
+            TArchitectureProviders,
+            TInitializationOrder
+        > {
+
+            /// Empty-selection sentinel.
+            using Type = void;
+
+        };
+
+
+        /// Selects the first provider having no incoming edge, preserving declaration order for unrelated providers.
+        ///
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        /// @tparam TFirstProvider Current candidate provider Type.
+        /// @tparam TRestProviders Remaining provider Types.
+        template<
+            class TArchitectureProviders,
+            bool TInitializationOrder,
+            class TFirstProvider,
+            class... TRestProviders
+        >
+        struct FindLifecycleReadyProvider<
+            ProviderList<
+                TFirstProvider,
+                TRestProviders...
+            >,
+            TArchitectureProviders,
+            TInitializationOrder
+        > {
+
+            /// First ready provider Type, or the result of inspecting the remaining providers.
+            using Type = std::conditional_t<
+                !HasIncomingLifecycleEdge<
+                    TFirstProvider,
+                    ProviderList<
+                        TFirstProvider,
+                        TRestProviders...
+                    >,
+                    TArchitectureProviders,
+                    TInitializationOrder
+                >::value,
+                TFirstProvider,
+                typename FindLifecycleReadyProvider<
+                    ProviderList<TRestProviders...>,
+                    TArchitectureProviders,
+                    TInitializationOrder
+                >::Type
+            >;
+
+        };
+
+
+        /// Builds one deterministic lifecycle provider ordering.
+        ///
+        /// @tparam TOrderedProviders Providers already placed in lifecycle order.
+        /// @tparam TRemainingProviders Providers still requiring placement.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        template<
+            class TOrderedProviders,
+            class TRemainingProviders,
+            class TArchitectureProviders,
+            bool TInitializationOrder
+        >
+        struct BuildLifecycleOrder;
+
+
+        /// Completes lifecycle ordering when no providers remain.
+        ///
+        /// @tparam TOrderedProviders Complete provider order.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        template<
+            class TOrderedProviders,
+            class TArchitectureProviders,
+            bool TInitializationOrder
+        >
+        struct BuildLifecycleOrder<
+            TOrderedProviders,
+            ProviderList<>,
+            TArchitectureProviders,
+            TInitializationOrder
+        > {
+
+            /// Completed lifecycle order.
+            using Type = TOrderedProviders;
+
+        };
+
+
+        /// Continues lifecycle ordering after selecting one ready provider.
+        ///
+        /// @tparam TOrderedProviders Providers already placed in lifecycle order.
+        /// @tparam TRemainingProviders Providers still requiring placement.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        /// @tparam TReadyProvider Selected ready provider Type.
+        template<
+            class TOrderedProviders,
+            class TRemainingProviders,
+            class TArchitectureProviders,
+            bool TInitializationOrder,
+            class TReadyProvider
+        >
+        struct ContinueLifecycleOrder {
+
+            /// Remaining provider set after consuming the ready provider.
+            using NextRemaining = typename RemoveProviderFromList<
+                TReadyProvider,
+                TRemainingProviders
+            >::Type;
+
+            /// Ordered provider set after appending the ready provider.
+            using NextOrdered = typename AppendProviderList<
+                TOrderedProviders,
+                TReadyProvider
+            >::Type;
+
+            /// Completed deterministic lifecycle order.
+            using Type = typename BuildLifecycleOrder<
+                NextOrdered,
+                NextRemaining,
+                TArchitectureProviders,
+                TInitializationOrder
+            >::Type;
+
+        };
+
+
+        /// Rejects a lifecycle dependency cycle when no remaining provider is ready.
+        ///
+        /// @tparam TOrderedProviders Providers placed before the cycle was detected.
+        /// @tparam TRemainingProviders Providers participating in the unresolved cycle.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        template<
+            class TOrderedProviders,
+            class TRemainingProviders,
+            class TArchitectureProviders,
+            bool TInitializationOrder
+        >
+        struct ContinueLifecycleOrder<
+            TOrderedProviders,
+            TRemainingProviders,
+            TArchitectureProviders,
+            TInitializationOrder,
+            void
+        > {
+
+            static_assert(
+                TRemainingProviders::IsEmpty,
+                "Composition lifecycle ordering contains a dependency cycle"
+            );
+
+            /// Unreachable fallback Type retained only to terminate template substitution after the diagnostic.
+            using Type = TOrderedProviders;
+
+        };
+
+
+        /// Selects one ready provider and continues deterministic lifecycle ordering.
+        ///
+        /// @tparam TOrderedProviders Providers already placed in lifecycle order.
+        /// @tparam TFirstProvider First remaining provider Type.
+        /// @tparam TRestProviders Remaining provider Types.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        template<
+            class TOrderedProviders,
+            class TFirstProvider,
+            class... TRestProviders,
+            class TArchitectureProviders,
+            bool TInitializationOrder
+        >
+        struct BuildLifecycleOrder<
+            TOrderedProviders,
+            ProviderList<
+                TFirstProvider,
+                TRestProviders...
+            >,
+            TArchitectureProviders,
+            TInitializationOrder
+        > {
+
+            private:
+
+                /// Complete remaining provider list.
+                using RemainingProviders = ProviderList<
+                    TFirstProvider,
+                    TRestProviders...
+                >;
+
+                /// First provider ready under the requested lifecycle relation.
+                using ReadyProvider = typename FindLifecycleReadyProvider<
+                    RemainingProviders,
+                    TArchitectureProviders,
+                    TInitializationOrder
+                >::Type;
+
+
+            public:
+
+                /// Completed deterministic lifecycle order.
+                using Type = typename ContinueLifecycleOrder<
+                    TOrderedProviders,
+                    RemainingProviders,
+                    TArchitectureProviders,
+                    TInitializationOrder,
+                    ReadyProvider
+                >::Type;
+
+        };
+
+
         /// Counts Compositions representing one requested Domain.
         template<class TDomain, class... TCompositions>
         inline constexpr std::size_t CompositionCountForDomainV =
@@ -412,6 +853,22 @@ namespace ESPressio::System::CompositionFramework {
         /// Complete deterministic provider population across all participating Compositions.
         using ProviderTypes = typename Detail::ArchitectureProviderTypes<
             TCompositions...
+        >::Type;
+
+        /// Deterministic provider initialization order derived only from explicit InitializesAfter clauses.
+        using InitializationOrder = typename Detail::BuildLifecycleOrder<
+            ProviderList<>,
+            ProviderTypes,
+            ProviderTypes,
+            true
+        >::Type;
+
+        /// Deterministic provider shutdown order derived only from explicit ShutsDownBefore clauses.
+        using ShutdownOrder = typename Detail::BuildLifecycleOrder<
+            ProviderList<>,
+            ProviderTypes,
+            ProviderTypes,
+            false
         >::Type;
 
         /// Indicates whether every provider's cross-domain dependencies are satisfied by participating Compositions.
