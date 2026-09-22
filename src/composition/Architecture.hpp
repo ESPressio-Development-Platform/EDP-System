@@ -132,6 +132,217 @@ namespace ESPressio::System::CompositionFramework {
         > {};
 
 
+        /// Concatenates every provider list represented by one Architecture.
+        ///
+        /// @tparam TCompositions Domain Compositions whose providers are being flattened.
+        template<class... TCompositions>
+        struct ArchitectureProviderTypes;
+
+
+        /// Empty Architecture provider population.
+        template<>
+        struct ArchitectureProviderTypes<> {
+
+            /// Empty provider list.
+            using Type = ProviderList<>;
+
+        };
+
+
+        /// Concatenates one Composition's providers with the remaining Architecture providers.
+        ///
+        /// @tparam TFirstComposition First Composition in declaration order.
+        /// @tparam TRestCompositions Remaining Compositions.
+        template<class TFirstComposition, class... TRestCompositions>
+        struct ArchitectureProviderTypes<
+            TFirstComposition,
+            TRestCompositions...
+        > {
+
+            private:
+
+                /// Flattened provider list from the remaining Compositions.
+                using Remaining = typename ArchitectureProviderTypes<
+                    TRestCompositions...
+                >::Type;
+
+
+            public:
+
+                /// Complete provider list preserving Composition and provider declaration order.
+                using Type = ProviderListConcat<
+                    typename TFirstComposition::ProviderTypes,
+                    Remaining
+                >;
+
+        };
+
+
+        /// Evaluates one consolidated Contract clause across a complete Architecture provider population.
+        ///
+        /// @tparam TClause Contract clause being evaluated.
+        /// @tparam TProviderList Complete Architecture provider population.
+        template<class TClause, class TProviderList>
+        struct ContractClauseSatisfiedInArchitecture : std::true_type {};
+
+
+        /// Evaluates one direct consolidated Requirement across an Architecture.
+        ///
+        /// @tparam TProviderList Complete Architecture provider population.
+        /// @tparam TCapability Requested Capability.
+        /// @tparam TScope Requirement scope.
+        /// @tparam TCardinality Accepted satisfying-provider count.
+        /// @tparam TConstraints Requirement qualification constraints.
+        template<
+            class TProviderList,
+            class TCapability,
+            RequirementScope TScope,
+            class TCardinality,
+            class... TConstraints
+        >
+        struct ContractClauseSatisfiedInArchitecture<
+            Requirement<
+                TCapability,
+                TScope,
+                TCardinality,
+                TConstraints...
+            >,
+            TProviderList
+        > : RequirementCardinalitySatisfied<
+            Requirement<
+                TCapability,
+                TScope,
+                TCardinality,
+                TConstraints...
+            >,
+            SatisfyingProviderCountInList<
+                Requirement<
+                    TCapability,
+                    TScope,
+                    TCardinality,
+                    TConstraints...
+                >,
+                TProviderList
+            >::value
+        > {};
+
+
+        /// Evaluates one SameProvider relationship across an Architecture.
+        ///
+        /// @tparam TProviderList Complete Architecture provider population.
+        /// @tparam TRequirements Requirements requiring one joint provider.
+        template<class TProviderList, class... TRequirements>
+        struct ContractClauseSatisfiedInArchitecture<
+            SameProvider<TRequirements...>,
+            TProviderList
+        > : std::bool_constant<
+            JointlySatisfyingProviderCount<
+                RequirementList<TRequirements...>,
+                TProviderList
+            >::value > 0U
+        > {};
+
+
+        /// Evaluates one DistinctProviders relationship across an Architecture.
+        ///
+        /// @tparam TProviderList Complete Architecture provider population.
+        /// @tparam TRequirements Requirements requiring distinct providers.
+        template<class TProviderList, class... TRequirements>
+        struct ContractClauseSatisfiedInArchitecture<
+            DistinctProviders<TRequirements...>,
+            TProviderList
+        > : DistinctAssignmentExists<
+            RequirementList<TRequirements...>,
+            TProviderList
+        > {};
+
+
+        /// Requires one unambiguous initialization predecessor across the Architecture.
+        ///
+        /// @tparam TProviderList Complete Architecture provider population.
+        /// @tparam TRequirement Lifecycle predecessor Requirement.
+        template<class TProviderList, class TRequirement>
+        struct ContractClauseSatisfiedInArchitecture<
+            InitializesAfter<TRequirement>,
+            TProviderList
+        > : std::bool_constant<
+            SatisfyingProviderCountInList<
+                TRequirement,
+                TProviderList
+            >::value == 1U
+        > {};
+
+
+        /// Requires one unambiguous shutdown successor across the Architecture.
+        ///
+        /// @tparam TProviderList Complete Architecture provider population.
+        /// @tparam TRequirement Lifecycle successor Requirement.
+        template<class TProviderList, class TRequirement>
+        struct ContractClauseSatisfiedInArchitecture<
+            ShutsDownBefore<TRequirement>,
+            TProviderList
+        > : std::bool_constant<
+            SatisfyingProviderCountInList<
+                TRequirement,
+                TProviderList
+            >::value == 1U
+        > {};
+
+
+        /// Evaluates one consolidated Contract across an Architecture.
+        ///
+        /// @tparam TContract Contract or void while one provider remains on the temporary migration path.
+        /// @tparam TProviderList Complete Architecture provider population.
+        template<class TContract, class TProviderList>
+        struct ContractSatisfiedInArchitecture : std::true_type {};
+
+
+        /// Evaluates every clause in one concrete Contract.
+        ///
+        /// @tparam TProviderList Complete Architecture provider population.
+        /// @tparam TClauses Contract clauses being evaluated.
+        template<class TProviderList, class... TClauses>
+        struct ContractSatisfiedInArchitecture<
+            Contract<TClauses...>,
+            TProviderList
+        > : std::bool_constant<
+            (
+                ContractClauseSatisfiedInArchitecture<
+                    TClauses,
+                    TProviderList
+                >::value &&
+                ...
+            )
+        > {};
+
+
+        /// Evaluates every provider Contract represented by one ProviderList.
+        ///
+        /// @tparam TProviderList Providers whose Contracts are being validated.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        template<class TProviderList, class TArchitectureProviders>
+        struct ProviderListContractsSatisfied;
+
+
+        /// Evaluates every concrete provider Contract.
+        ///
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TProviders Providers whose Contracts are being validated.
+        template<class TArchitectureProviders, class... TProviders>
+        struct ProviderListContractsSatisfied<
+            ProviderList<TProviders...>,
+            TArchitectureProviders
+        > : std::bool_constant<
+            (
+                ContractSatisfiedInArchitecture<
+                    typename TProviders::CompositionContract,
+                    TArchitectureProviders
+                >::value &&
+                ...
+            )
+        > {};
+
+
         /// Counts Compositions representing one requested Domain.
         template<class TDomain, class... TCompositions>
         inline constexpr std::size_t CompositionCountForDomainV =
@@ -198,6 +409,11 @@ namespace ESPressio::System::CompositionFramework {
 
         // Architecture validation.
 
+        /// Complete deterministic provider population across all participating Compositions.
+        using ProviderTypes = typename Detail::ArchitectureProviderTypes<
+            TCompositions...
+        >::Type;
+
         /// Indicates whether every provider's cross-domain dependencies are satisfied by participating Compositions.
         static constexpr bool AllDependenciesSatisfied =
             (Detail::ProviderListDependenciesSatisfied<
@@ -205,9 +421,24 @@ namespace ESPressio::System::CompositionFramework {
                 TCompositions...
             >::value && ...);
 
+        /// Indicates whether every consolidated provider Contract is satisfied across the complete Architecture.
+        static constexpr bool AllContractsSatisfied =
+            (
+                Detail::ProviderListContractsSatisfied<
+                    typename TCompositions::ProviderTypes,
+                    ProviderTypes
+                >::value &&
+                ...
+            );
+
         static_assert(
             AllDependenciesSatisfied,
             "Architecture contains an unsatisfied cross-domain provider dependency"
+        );
+
+        static_assert(
+            AllContractsSatisfied,
+            "Architecture contains an unsatisfied consolidated provider Contract"
         );
 
         // Architecture metadata.
@@ -219,7 +450,9 @@ namespace ESPressio::System::CompositionFramework {
         static constexpr std::size_t CompositionCount = sizeof...(TCompositions);
 
         /// Indicates that all participating Compositions and cross-domain dependencies are valid.
-        static constexpr bool IsValid = AllDependenciesSatisfied;
+        static constexpr bool IsValid =
+            AllDependenciesSatisfied &&
+            AllContractsSatisfied;
 
         // Domain queries.
 
@@ -267,6 +500,88 @@ namespace ESPressio::System::CompositionFramework {
         /// Returns the unique provider satisfying one Need from the Composition owning that Need's Domain.
         template<class TNeed>
         using ProviderSatisfying = typename CompositionFor<typename TNeed::CompositionDomain>::template ProviderSatisfying<TNeed>;
+
+
+        // Consolidated Requirement queries.
+
+        /// Returns the number of providers matching one Requirement qualification.
+        ///
+        /// @tparam TRequirement Requirement being queried.
+        template<class TRequirement>
+        static constexpr std::size_t MatchCount =
+            ProviderCountSatisfying<TRequirement>;
+
+        /// Indicates whether at least one provider matches one Requirement qualification.
+        ///
+        /// @tparam TRequirement Requirement being queried.
+        template<class TRequirement>
+        static constexpr bool HasMatch =
+            MatchCount<TRequirement> > 0U;
+
+        /// Returns every provider matching one Requirement qualification.
+        ///
+        /// @tparam TRequirement Requirement being queried.
+        template<class TRequirement>
+        using Matches = ProvidersSatisfying<TRequirement>;
+
+        /// Indicates whether the Architecture provider population obeys one Requirement's cardinality.
+        ///
+        /// @tparam TRequirement Requirement being validated.
+        template<class TRequirement>
+        static constexpr bool SatisfiesRequirement =
+            Detail::RequirementCardinalitySatisfied<
+                TRequirement,
+                MatchCount<TRequirement>
+            >::value;
+
+        /// Resolves Requirement matches using one explicit selection policy.
+        ///
+        /// @tparam TRequirement Requirement whose matching providers are being selected.
+        /// @tparam TSelectionPolicy Explicit provider selection policy.
+        template<
+            class TRequirement,
+            class TSelectionPolicy = SelectUnique
+        >
+        using Select = typename Detail::SelectionResult<
+            TRequirement,
+            TSelectionPolicy,
+            Matches<TRequirement>
+        >::Type;
+
+
+        // Consumer Contract validation.
+
+        /// Indicates whether the complete Architecture satisfies one reusable consumer Contract.
+        ///
+        /// @tparam TContract Consolidated consumer Contract.
+        template<class TContract>
+        static constexpr bool SatisfiesContract =
+            Detail::ContractTraits<TContract>::IsValid &&
+            Detail::ContractSatisfiedInArchitecture<
+                TContract,
+                ProviderTypes
+            >::value;
+
+        /// Performs strict compile-time validation of one consumer Contract.
+        ///
+        /// @tparam TContract Consolidated consumer Contract.
+        template<class TContract>
+        struct ValidateContract {
+
+            static_assert(
+                Detail::ContractTraits<TContract>::IsValid,
+                "Architecture::ValidateContract requires a consolidated Contract"
+            );
+
+            static_assert(
+                SatisfiesContract<TContract>,
+                "Architecture does not satisfy the requested consumer Contract"
+            );
+
+            /// Indicates successful consumer Contract validation.
+            static constexpr bool IsValid = true;
+
+        };
 
     };
 
