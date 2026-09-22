@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <type_traits>
 
@@ -221,6 +222,13 @@ namespace ESPressio::System::CompositionFramework {
         /// @tparam TRequirements Requirement Types represented by this internal list.
         template<class... TRequirements>
         struct RequirementList {};
+
+
+        /// Stores a compile-time list of Contract clause Types.
+        ///
+        /// @tparam TClauses Contract clauses represented by this internal list.
+        template<class... TClauses>
+        struct ContractClauseList {};
 
 
         /// Default SameProvider metadata for unrelated Types.
@@ -682,7 +690,7 @@ namespace ESPressio::System::CompositionFramework {
         static constexpr std::size_t Count = sizeof...(TClauses);
 
         /// Complete compile-time Contract clause list.
-        using Clauses = Detail::TypeList<TClauses...>;
+        using Clauses = Detail::ContractClauseList<TClauses...>;
 
 
         // Provider-contract validation.
