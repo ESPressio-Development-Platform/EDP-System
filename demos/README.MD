@@ -3,6 +3,7 @@
 Buildable demonstrations are provided for each currently exposed System feature.
 
 - `composition-basic` — compile-time capability/provider selection, open Attributes, qualified SharedCapability resolution, and cross-domain `Architecture<>` validation.
+- `flag-set-basic` — strongly typed compact flag storage, explicit per-flag state construction, flag mutation/predicates, and masked raw assignment.
 - `identity-basic` — Device Identity, Runtime Incarnation Identity, and `SystemIdentity` bootstrap.
 
 Each demo contains the policy-required `Arduino_IDE`, `PlatformIO_Arduino`, and `PlatformIO_ESP-IDF` targets.

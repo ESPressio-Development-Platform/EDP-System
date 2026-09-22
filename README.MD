@@ -14,6 +14,9 @@ The following facilities are currently provided by the System library:
 - [Qualified Composition Resolution](./docs/COMPOSITION-QUALIFIED-RESOLUTION.MD)  
   Defines open compile-time provider Attributes, qualified SharedCapability resolution, cross-domain `DependsOn<>` dependencies, and multi-domain `Architecture<>` validation.
 
+- [Flag Set](./docs/FLAG-SET.MD)  
+  Defines the allocation-free, strongly typed compact runtime flag representation, state-aware construction, mutation/predicate operations, raw representation access, and storage guarantees.
+
 - [C++20 Toolchain Baseline](./docs/CPP20-TOOLCHAIN.MD)  
   Defines the required C++20 baseline, recommends PIOArduino for ESP32 Arduino builds, and documents compatible PlatformIO configuration.
 
@@ -36,6 +39,7 @@ See [DEPENDENCY_GRAPH.MD](./DEPENDENCY_GRAPH.MD) for the maintained dependency g
 Buildable demonstrations are provided under [`./demos`](./demos):
 
 - `composition-basic`
+- `flag-set-basic`
 - `identity-basic`
 
 Each demonstration contains the policy-required Arduino IDE, PlatformIO-compatible Arduino, and PlatformIO-compatible ESP-IDF targets.
