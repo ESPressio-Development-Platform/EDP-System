@@ -14,6 +14,9 @@ The following facilities are currently provided by the System library:
 - [Composition Flag Properties](./docs/COMPOSITION-FLAG-PROPERTIES.MD)  
   Defines typed finite feature-set Properties, typed provider advertisement, and all/any/none flag constraints for compile-time provider qualification.
 
+- [Composition Provider References](./docs/COMPOSITION-PROVIDER-REFERENCES.MD)  
+  Defines non-owning runtime binding and traversal of Bootstrap-owned instances represented by plural compile-time provider-resolution results.
+
 - [Qualified Composition Resolution](./docs/COMPOSITION-QUALIFIED-RESOLUTION.MD)  
   Defines open compile-time provider Attributes, qualified SharedCapability resolution, cross-domain `DependsOn<>` dependencies, and multi-domain `Architecture<>` validation.
 
@@ -43,6 +46,7 @@ Buildable demonstrations are provided under [`./demos`](./demos):
 
 - `composition-basic`
 - `composition-flag-properties`
+- `composition-provider-references`
 - `flag-set-basic`
 - `identity-basic`
 

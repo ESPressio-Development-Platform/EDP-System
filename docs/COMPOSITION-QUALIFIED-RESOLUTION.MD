@@ -206,6 +206,8 @@ Returns a `ProviderList` containing every matching provider.
 
 Plural resolution is the correct operation when more than one provider may legitimately match.
 
+When Bootstrap owns runtime instances corresponding to that plural type result, `ProviderReferences<...>` can bind those instances into a non-owning typed view and traverse them without runtime capability discovery. See [Composition Provider References](./COMPOSITION-PROVIDER-REFERENCES.MD).
+
 ### Singular resolution
 
 ```cpp
@@ -343,6 +345,8 @@ using RadioProvider = ApplicationArchitecture::ProviderSatisfying<
 - start or stop services.
 
 Bootstrap code remains responsible for ordinary C++ object ownership and for wiring the selected provider instances together.
+
+The additive `ProviderReferences<ProviderList<...>>` utility does not change this boundary. It stores only non-owning references to provider instances which Bootstrap already owns; it does not construct, own, register, discover, start, or stop providers. See [Composition Provider References](./COMPOSITION-PROVIDER-REFERENCES.MD).
 
 Composition and Architecture answer compile-time structural questions only.
 

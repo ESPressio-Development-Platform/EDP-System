@@ -1610,6 +1610,48 @@ For the complete contract, including C++20 text Attributes, ambiguity handling, 
 
 ---
 
+# Binding Plural Provider Results at Bootstrap
+
+Plural compile-time resolution and runtime provider ownership are separate responsibilities.
+
+For example:
+
+~~~cpp
+using BroadcastProviders =
+    ApplicationComposition::ProvidersSatisfying<
+        BroadcastRequirement
+    >;
+~~~
+
+resolves a `ProviderList<...>` containing every matching provider type. It does not construct or own those providers.
+
+Bootstrap can bind its existing provider instances to that exact type list through:
+
+~~~cpp
+Composition::ProviderReferences<
+    BroadcastProviders
+> broadcastRadios(
+    firstRadio,
+    secondRadio
+);
+~~~
+
+A consumer can then operate across the complete bound set:
+
+~~~cpp
+broadcastRadios.ForEach(
+    [](auto& radio) {
+        radio.Broadcast();
+    }
+);
+~~~
+
+The collection is non-owning, allocation-free, list-order preserving, and performs no runtime capability matching.
+
+For the complete ownership, lifetime, const-traversal, empty-set, resource, and result-handling contract, see [Composition Provider References](./COMPOSITION-PROVIDER-REFERENCES.MD).
+
+---
+
 # Cross-Domain Architecture Validation
 
 `Requires<...>` remains a same-domain contract and retains its existing semantics.
@@ -2057,6 +2099,18 @@ using RadioProviders = ApplicationComposition::ProvidersSatisfying<
     BroadRadioRequirement
 >;
 ```
+
+## `ProviderReferences<TProviderList>`
+
+Binds Bootstrap-owned runtime instances corresponding exactly to one compile-time `ProviderList` and exposes deterministic `ForEach` traversal without taking ownership.
+
+```cpp
+using RadioReferences = Composition::ProviderReferences<
+    RadioProviders
+>;
+```
+
+See [Composition Provider References](./COMPOSITION-PROVIDER-REFERENCES.MD) for the runtime ownership/lifetime contract.
 
 ## `DependsOn<...>`
 
