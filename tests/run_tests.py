@@ -30,6 +30,11 @@ COMPILE_FAIL_TESTS = (
     ROOT / "tests" / "compile_fail" / "flag_constraint_empty.cpp",
     ROOT / "tests" / "compile_fail" / "provider_references_wrong_binding.cpp",
     ROOT / "tests" / "compile_fail" / "provider_references_incompatible_callable.cpp",
+    ROOT / "tests" / "compile_fail" / "contract_cardinality_unsatisfied.cpp",
+    ROOT / "tests" / "compile_fail" / "contract_distinct_providers_unsatisfied.cpp",
+    ROOT / "tests" / "compile_fail" / "contract_best_match_tie.cpp",
+    ROOT / "tests" / "compile_fail" / "contract_same_provider_cross_domain.cpp",
+    ROOT / "tests" / "compile_fail" / "contract_lifecycle_cycle.cpp",
 )
 
 COMMON_ARGUMENTS = (
