@@ -284,6 +284,14 @@ int main() {
         }
     );
 
+    const auto& constEmptyProviders = emptyProviders;
+
+    constEmptyProviders.ForEach(
+        [&emptyTraversalCount](const auto&) {
+            ++emptyTraversalCount;
+        }
+    );
+
     return traversalOrderIsCorrect &&
         traversalIndex == 2U &&
         timestampedRadio.BroadcastCount() == 1U &&

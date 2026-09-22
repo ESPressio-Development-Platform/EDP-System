@@ -79,7 +79,11 @@ namespace ESPressio::System::CompositionFramework {
                     "ProviderReferences::ForEach callable must accept every represented provider type"
                 );
 
-                if constexpr (isCompatible) {
+                if constexpr (Count == 0U) {
+                    // Preserve the no-op semantics of an empty provider collection without instantiating
+                    // a traversal lambda whose callable capture would necessarily be unused.
+                    static_cast<void>(callable);
+                } else if constexpr (isCompatible) {
                     std::apply(
                         [&callable](TProviders*... providers) {
                             (
@@ -111,7 +115,11 @@ namespace ESPressio::System::CompositionFramework {
                     "ProviderReferences::ForEach const callable must accept every represented provider type as const"
                 );
 
-                if constexpr (isCompatible) {
+                if constexpr (Count == 0U) {
+                    // Preserve the no-op semantics of an empty const provider collection without instantiating
+                    // a traversal lambda whose callable capture would necessarily be unused.
+                    static_cast<void>(callable);
+                } else if constexpr (isCompatible) {
                     std::apply(
                         [&callable](TProviders*... providers) {
                             (
