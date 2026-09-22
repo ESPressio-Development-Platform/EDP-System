@@ -628,11 +628,11 @@ namespace ESPressio::System::CompositionFramework {
         /// @tparam TConstraints Qualification constraints attached to the Requirement.
         /// @tparam TScope Requirement scope being matched.
         template<
+            RequirementScope TScope,
             class TCapability,
             RequirementScope TRequirementScope,
             class TCardinality,
-            class... TConstraints,
-            RequirementScope TScope
+            class... TConstraints
         >
         struct DirectRequirementMatchesScope<
             Requirement<
