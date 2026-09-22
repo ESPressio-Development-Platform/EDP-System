@@ -18,6 +18,7 @@ CXX = os.environ.get("CXX", "c++")
 POSITIVE_TESTS = (
     ROOT / "tests" / "composition" / "CompositionTests.cpp",
     ROOT / "tests" / "composition" / "FlagPropertyTests.cpp",
+    ROOT / "tests" / "composition" / "ProviderReferencesTests.cpp",
     ROOT / "tests" / "flags" / "FlagSetTests.cpp",
     ROOT / "tests" / "identity" / "IdentityTests.cpp",
 )
@@ -26,6 +27,8 @@ COMPILE_FAIL_TESTS = (
     ROOT / "tests" / "compile_fail" / "flag_property_wrong_domain.cpp",
     ROOT / "tests" / "compile_fail" / "flag_property_out_of_range.cpp",
     ROOT / "tests" / "compile_fail" / "flag_constraint_empty.cpp",
+    ROOT / "tests" / "compile_fail" / "provider_references_wrong_binding.cpp",
+    ROOT / "tests" / "compile_fail" / "provider_references_incompatible_callable.cpp",
 )
 
 COMMON_ARGUMENTS = (
