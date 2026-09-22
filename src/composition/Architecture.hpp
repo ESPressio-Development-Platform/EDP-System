@@ -1013,6 +1013,36 @@ namespace ESPressio::System::CompositionFramework {
         >::Type;
 
 
+        // Joint provider queries.
+
+        /// Returns providers jointly satisfying every supplied Requirement across the complete Architecture.
+        ///
+        /// @tparam TRequirements Requirements which must all be satisfied by the same provider Type.
+        template<class... TRequirements>
+        using JointMatches = typename Detail::FilterJointlySatisfyingProviders<
+            Detail::RequirementList<TRequirements...>,
+            ProviderList<>,
+            ProviderTypes
+        >::Type;
+
+        /// Returns the number of providers jointly satisfying every supplied Requirement.
+        ///
+        /// @tparam TRequirements Requirements being jointly evaluated.
+        template<class... TRequirements>
+        static constexpr std::size_t JointMatchCount =
+            JointMatches<TRequirements...>::Count;
+
+        /// Resolves providers jointly satisfying every supplied Requirement using one explicit selection policy.
+        ///
+        /// @tparam TSelectionPolicy Explicit provider selection policy.
+        /// @tparam TRequirements Requirements which must all be satisfied by the same provider Type.
+        template<class TSelectionPolicy, class... TRequirements>
+        using SelectJoint = typename Detail::ProviderListSelectionResult<
+            TSelectionPolicy,
+            JointMatches<TRequirements...>
+        >::Type;
+
+
         // Consumer Contract validation.
 
         /// Indicates whether the complete Architecture satisfies one reusable consumer Contract.

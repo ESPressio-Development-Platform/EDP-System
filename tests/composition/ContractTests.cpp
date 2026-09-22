@@ -180,6 +180,10 @@ namespace ESPressio::System::Tests::CompositionContracts {
                 Framework::TextAttribute<
                     "Transport",
                     "WiFi"
+                >,
+                Framework::Attribute<
+                    "Channel",
+                    6
                 >
             >,
             Framework::Offer<Diagnostics>
@@ -362,6 +366,48 @@ namespace ESPressio::System::Tests::CompositionContracts {
         Framework::RequirementScope::AnyDomain
     >;
 
+    /// Qualification exercising Property ranges, set membership and negative presence checks.
+    using RichBleRequirement = Framework::Requirement<
+        Radio,
+        Framework::RequirementScope::AnyDomain,
+        Framework::AtLeastProviders<1U>,
+        Framework::Between<
+            MaximumPayloadBytes,
+            512U,
+            2048U
+        >,
+        Framework::OneOf<
+            LatencyMicroseconds,
+            4U,
+            8U
+        >,
+        Framework::NoneOf<
+            MaximumPayloadBytes,
+            64U,
+            128U
+        >,
+        Framework::NotEquals<
+            MaximumPayloadBytes,
+            512U
+        >,
+        Framework::DoesNotHaveProperty<Preferred>,
+        Framework::DoesNotHaveAttribute<"Legacy">
+    >;
+
+    /// Wi-Fi qualification exercising Attribute presence and ordered comparison.
+    using OrderedWifiRequirement = Framework::Requirement<
+        Radio,
+        Framework::RequirementScope::AnyDomain,
+        Framework::AtLeastProviders<1U>,
+        Framework::HasAttribute<"Transport">,
+        Framework::AttributeBetween<
+            "Channel",
+            1,
+            11
+        >
+    >;
+
+
     /// Reusable standalone consumer Contract.
     using ConsumerContract = Framework::Contract<
         ConsumerRadioRequirement,
@@ -477,6 +523,66 @@ namespace ESPressio::System::Tests::CompositionContracts {
     static_assert(
         std::is_void_v<MissingOptionalRadio>,
         "Optional unique selection must resolve void when nothing matches"
+    );
+
+
+    // Joint provider qualification.
+
+    using JointWifiDiagnostics = TestArchitecture::JointMatches<
+        ConsumerWifiRadio,
+        ConsumerDiagnostics
+    >;
+
+    static_assert(
+        JointWifiDiagnostics::Count == 1U &&
+        JointWifiDiagnostics::template Contains<WifiRadioProvider>,
+        "JointMatches must return only providers satisfying every supplied Requirement"
+    );
+
+    using SelectedJointWifiDiagnostics = TestArchitecture::SelectJoint<
+        Framework::SelectUnique,
+        ConsumerWifiRadio,
+        ConsumerDiagnostics
+    >;
+
+    static_assert(
+        std::is_same_v<
+            SelectedJointWifiDiagnostics,
+            WifiRadioProvider
+        >,
+        "SelectJoint must support explicit selection over multi-Requirement qualification"
+    );
+
+    static_assert(
+        TestArchitecture::JointMatchCount<
+            ConsumerWifiRadio,
+            ConsumerDiagnostics
+        > == 1U,
+        "JointMatchCount must expose the jointly matching provider population"
+    );
+
+
+    // Rich constraint coverage.
+
+    static_assert(
+        TestArchitecture::MatchCount<RichBleRequirement> == 1U,
+        "Range, one-of, none-of, inequality and absence constraints must compose"
+    );
+
+    static_assert(
+        Framework::ProviderMatch<
+            BleRadioProvider,
+            RichBleRequirement
+        >::IsSatisfied,
+        "BLE provider must satisfy the rich Property constraint expression"
+    );
+
+    static_assert(
+        Framework::ProviderMatch<
+            WifiRadioProvider,
+            OrderedWifiRequirement
+        >::IsSatisfied,
+        "Ordered Attribute constraints must qualify the Wi-Fi provider"
     );
 
 
