@@ -36,11 +36,12 @@ Runtime ownership and lifecycle remain ordinary C++ responsibilities.
 8. [Example 3 - Shared Capabilities](#example-3---shared-capabilities)
 9. [Example 4 - Consuming Composition from a Reusable Library](#example-4---consuming-composition-from-a-reusable-library)
 10. [Qualified Provider Resolution](#qualified-provider-resolution)
-11. [Cross-Domain Architecture Validation](#cross-domain-architecture-validation)
-12. [Compile-Time Validation](#compile-time-validation)
-13. [Common Mistakes](#common-mistakes)
-14. [Choosing What Belongs in Composition](#choosing-what-belongs-in-composition)
-15. [Public Vocabulary Reference](#public-vocabulary-reference)
+11. [Binding Plural Provider Results at Bootstrap](#binding-plural-provider-results-at-bootstrap)
+12. [Cross-Domain Architecture Validation](#cross-domain-architecture-validation)
+13. [Compile-Time Validation](#compile-time-validation)
+14. [Common Mistakes](#common-mistakes)
+15. [Choosing What Belongs in Composition](#choosing-what-belongs-in-composition)
+16. [Public Vocabulary Reference](#public-vocabulary-reference)
 
 ---
 
