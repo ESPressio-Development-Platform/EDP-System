@@ -222,7 +222,10 @@ namespace ESPressio::System {
             TFlag flag,
             TAdditionalFlags... additionalFlags
         ) noexcept :
-            _bits(Mask(flag, additionalFlags...)) {}
+            _bits(Mask(
+                flag,
+                additionalFlags...
+            )) {}
 
         /// Creates a zero-based flag set and applies explicit state assignments from left to right.
         ///
@@ -304,7 +307,10 @@ namespace ESPressio::System {
             TFlag flag,
             TAdditionalFlags... additionalFlags
         ) noexcept {
-            _bits = static_cast<Storage>(_bits | Mask(flag, additionalFlags...));
+            _bits = static_cast<Storage>(_bits | Mask(
+                flag,
+                additionalFlags...
+            ));
         }
 
         /// Clears one or more flags while preserving every other represented flag.
@@ -320,7 +326,10 @@ namespace ESPressio::System {
             TFlag flag,
             TAdditionalFlags... additionalFlags
         ) noexcept {
-            const auto mask = Mask(flag, additionalFlags...);
+            const auto mask = Mask(
+                flag,
+                additionalFlags...
+            );
             _bits = static_cast<Storage>(_bits & static_cast<Storage>(~mask));
         }
 
@@ -337,7 +346,10 @@ namespace ESPressio::System {
             TFlag flag,
             TAdditionalFlags... additionalFlags
         ) noexcept {
-            _bits = static_cast<Storage>(_bits ^ Mask(flag, additionalFlags...));
+            _bits = static_cast<Storage>(_bits ^ Mask(
+                flag,
+                additionalFlags...
+            ));
         }
 
         /// Assigns one common set/clear state to one or more flags.
@@ -356,9 +368,15 @@ namespace ESPressio::System {
             TAdditionalFlags... additionalFlags
         ) noexcept {
             if (isSet) {
-                Set(flag, additionalFlags...);
+                Set(
+                    flag,
+                    additionalFlags...
+                );
             } else {
-                Clear(flag, additionalFlags...);
+                Clear(
+                    flag,
+                    additionalFlags...
+                );
             }
         }
 
@@ -401,7 +419,10 @@ namespace ESPressio::System {
             TFlag flag,
             TAdditionalFlags... additionalFlags
         ) const noexcept {
-            const auto mask = Mask(flag, additionalFlags...);
+            const auto mask = Mask(
+                flag,
+                additionalFlags...
+            );
 
             return mask != static_cast<Storage>(0U) && (_bits & mask) != static_cast<Storage>(0U);
         }
@@ -417,9 +438,15 @@ namespace ESPressio::System {
             TFlag flag,
             TAdditionalFlags... additionalFlags
         ) const noexcept {
-            if (!AreFlagsRepresentable(flag, additionalFlags...)) return false;
+            if (!AreFlagsRepresentable(
+                flag,
+                additionalFlags...
+            )) return false;
 
-            const auto mask = Mask(flag, additionalFlags...);
+            const auto mask = Mask(
+                flag,
+                additionalFlags...
+            );
 
             return (_bits & mask) == mask;
         }
