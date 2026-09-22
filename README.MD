@@ -11,6 +11,9 @@ The following facilities are currently provided by the System library:
 - [Composition Framework](./docs/COMPOSITION-FRAMEWORK.MD)  
   Defines compile-time domains, capabilities, providers, requirements, properties, constraints, Attributes, qualified provider resolution, and complete system compositions.
 
+- [Composition Flag Properties](./docs/COMPOSITION-FLAG-PROPERTIES.MD)  
+  Defines typed finite feature-set Properties, typed provider advertisement, and all/any/none flag constraints for compile-time provider qualification.
+
 - [Qualified Composition Resolution](./docs/COMPOSITION-QUALIFIED-RESOLUTION.MD)  
   Defines open compile-time provider Attributes, qualified SharedCapability resolution, cross-domain `DependsOn<>` dependencies, and multi-domain `Architecture<>` validation.
 
@@ -39,6 +42,7 @@ See [DEPENDENCY_GRAPH.MD](./DEPENDENCY_GRAPH.MD) for the maintained dependency g
 Buildable demonstrations are provided under [`./demos`](./demos):
 
 - `composition-basic`
+- `composition-flag-properties`
 - `flag-set-basic`
 - `identity-basic`
 

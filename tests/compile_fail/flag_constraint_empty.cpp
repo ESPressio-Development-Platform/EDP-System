@@ -6,14 +6,9 @@ namespace Test {
 
     namespace Framework = ESPressio::System::CompositionFramework;
 
-    /// Correct flag enum for the tested Property.
+    /// Flag enum used by this intentional compile-failure test.
     enum class Feature : std::uint8_t {
         Supported = 0
-    };
-
-    /// Unrelated flag enum which must not be accepted by the tested Property.
-    enum class ForeignFeature : std::uint8_t {
-        Unsupported = 0
     };
 
     /// Composition domain used by this intentional compile-failure test.
@@ -22,22 +17,19 @@ namespace Test {
     /// Capability used by this intentional compile-failure test.
     struct Capability final : Framework::ExclusiveCapability<Domain> {};
 
-    /// Typed flag Property accepting only Feature values.
+    /// Typed flag Property used to verify that a constraint must request at least one flag.
     struct Features final : Framework::FlagProperty<
         Capability,
         Feature,
         std::uint8_t
     > {};
 
-    /// Intentionally invalid value using a different enum domain.
-    using InvalidValue = Framework::FlagPropertyValue<
-        Features,
-        ForeignFeature::Unsupported
-    >;
+    /// Intentionally invalid empty all-flags requirement.
+    using InvalidConstraint = Framework::HasAllFlags<Features>;
 
     static_assert(
-        InvalidValue::Value == 0U,
-        "This source must fail before a value can be observed"
+        sizeof(InvalidConstraint) > 0U,
+        "This source must fail before an empty flag constraint can be formed"
     );
 
 } // Test

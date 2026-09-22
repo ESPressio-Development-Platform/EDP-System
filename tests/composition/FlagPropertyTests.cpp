@@ -7,14 +7,6 @@ namespace ESPressio::System::Tests::CompositionFlagProperty {
 
     namespace Framework = ESPressio::System::CompositionFramework;
 
-    /// Composition domain used by the flag-property tests.
-    struct RadioDomain final : Framework::Domain {};
-
-
-    /// Shared Radio capability used to validate typed feature-set provider matching.
-    struct Radio final : Framework::SharedCapability<RadioDomain> {};
-
-
     /// Compile-time feature vocabulary supported by one Radio provider.
     enum class RadioFeature : std::uint8_t {
         Broadcast = 0,
@@ -28,6 +20,14 @@ namespace ESPressio::System::Tests::CompositionFlagProperty {
     enum class ForeignFeature : std::uint8_t {
         SomethingElse = 0
     };
+
+
+    /// Composition domain used by the flag-property tests.
+    struct RadioDomain final : Framework::Domain {};
+
+
+    /// Shared Radio capability used to validate typed feature-set provider matching.
+    struct Radio final : Framework::SharedCapability<RadioDomain> {};
 
 
     /// Typed finite feature set advertised for the Radio capability.
@@ -119,6 +119,16 @@ namespace ESPressio::System::Tests::CompositionFlagProperty {
         Framework::HasNoFlags<
             SupportedFeatures,
             RadioFeature::LowEnergy
+        >
+    >;
+
+
+    /// Existing raw equality requirement used to verify ordinary Property compatibility.
+    using ExactFeatureStorageRequirement = Framework::Need<
+        Radio,
+        Framework::Equals<
+            SupportedFeatures,
+            0x07U
         >
     >;
 
@@ -224,6 +234,11 @@ namespace ESPressio::System::Tests::CompositionFlagProperty {
             TimestampedRadioProvider
         >,
         "Expected HasNoFlags provider resolution to select the non-low-energy qualified provider"
+    );
+
+    static_assert(
+        RadioComposition::ProviderCountSatisfying<ExactFeatureStorageRequirement> == 1U,
+        "Expected existing Equals constraints to remain compatible with FlagProperty storage"
     );
 
 } // ESPressio::System::Tests::CompositionFlagProperty
