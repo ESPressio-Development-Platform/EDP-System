@@ -724,6 +724,27 @@ namespace ESPressio::System::CompositionFramework {
         };
 
 
+        /// Forward declaration for provider-versus-RequirementList joint matching.
+        ///
+        /// @tparam TProvider Provider Type being inspected.
+        /// @tparam TRequirementList Requirements which must all match.
+        template<class TProvider, class TRequirementList>
+        struct ProviderSatisfiesRequirementList;
+
+
+        /// Forward declaration for best-Property filtering used by generic selection policies.
+        ///
+        /// @tparam TProperty Property used for ranking.
+        /// @tparam TMinimize Whether lower values are preferred.
+        /// @tparam TProviderList Candidate providers.
+        template<
+            class TProperty,
+            bool TMinimize,
+            class TProviderList
+        >
+        struct BestProviderList;
+
+
         /// Filters one ProviderList to providers satisfying every Requirement in one RequirementList.
         ///
         /// @tparam TRequirementList Requirements which must all match the same provider.
