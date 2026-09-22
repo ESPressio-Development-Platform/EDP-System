@@ -681,21 +681,66 @@ namespace ESPressio::System::CompositionFramework {
         };
 
 
+        /// Appends one direct Requirement to an accumulated RequirementList when its scope matches.
+        ///
+        /// @tparam TScope Requirement scope being collected.
+        /// @tparam TClause Current Contract clause.
+        /// @tparam TAccumulatedRequirements RequirementList accumulated so far.
+        template<
+            RequirementScope TScope,
+            class TClause,
+            class TAccumulatedRequirements
+        >
+        struct AppendRequirementForScope;
+
+
+        /// Conditionally appends one clause to a concrete Requirement pack.
+        ///
+        /// @tparam TScope Requirement scope being collected.
+        /// @tparam TClause Current Contract clause.
+        /// @tparam TRequirements Accumulated Requirements.
+        template<
+            RequirementScope TScope,
+            class TClause,
+            class... TRequirements
+        >
+        struct AppendRequirementForScope<
+            TScope,
+            TClause,
+            RequirementList<TRequirements...>
+        > {
+
+            /// Updated Requirement list.
+            using Type = std::conditional_t<
+                DirectRequirementMatchesScope<
+                    TClause,
+                    TScope
+                >::value,
+                RequirementList<
+                    TRequirements...,
+                    TClause
+                >,
+                RequirementList<TRequirements...>
+            >;
+
+        };
+
+
         /// Inspects one Contract clause and continues scoped Requirement collection.
         ///
         /// @tparam TScope Requirement scope being collected.
-        /// @tparam TRequirements Accumulated Requirements.
+        /// @tparam TAccumulatedRequirements RequirementList accumulated so far.
         /// @tparam TFirstClause Current Contract clause.
         /// @tparam TRestClauses Remaining Contract clauses.
         template<
             RequirementScope TScope,
-            class... TRequirements,
+            class TAccumulatedRequirements,
             class TFirstClause,
             class... TRestClauses
         >
         struct CollectRequirementsByScope<
             TScope,
-            RequirementList<TRequirements...>,
+            TAccumulatedRequirements,
             TFirstClause,
             TRestClauses...
         > {
@@ -703,14 +748,11 @@ namespace ESPressio::System::CompositionFramework {
             // Collection state.
 
             /// Next Requirement list after conditionally adding the current direct Requirement.
-            using NextRequirements = std::conditional_t<
-                DirectRequirementMatchesScope<
-                    TFirstClause,
-                    TScope
-                >::value,
-                RequirementList<TRequirements..., TFirstClause>,
-                RequirementList<TRequirements...>
-            >;
+            using NextRequirements = typename AppendRequirementForScope<
+                TScope,
+                TFirstClause,
+                TAccumulatedRequirements
+            >::Type;
 
             /// Final scoped Requirement list.
             using Type = typename CollectRequirementsByScope<
