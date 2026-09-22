@@ -546,12 +546,14 @@ namespace ESPressio::System::CompositionFramework {
         > {};
 
 
-        /// Finds the first declaration-order provider with no incoming lifecycle edge.
+        /// Finds the first declaration-order provider with no incoming lifecycle edge from the complete remaining set.
         ///
-        /// @tparam TRemainingProviders Remaining providers in the topological sort.
+        /// @tparam TCandidates Candidate providers still being inspected for readiness.
+        /// @tparam TRemainingProviders Complete remaining provider set used for incoming-edge checks.
         /// @tparam TArchitectureProviders Complete Architecture provider population.
         /// @tparam TInitializationOrder Whether initialization ordering is being derived.
         template<
+            class TCandidates,
             class TRemainingProviders,
             class TArchitectureProviders,
             bool TInitializationOrder
@@ -559,33 +561,38 @@ namespace ESPressio::System::CompositionFramework {
         struct FindLifecycleReadyProvider;
 
 
-        /// No provider can be selected from an empty set.
+        /// No provider can be selected after all candidates are exhausted.
         ///
+        /// @tparam TRemainingProviders Complete remaining provider set.
         /// @tparam TArchitectureProviders Complete Architecture provider population.
         /// @tparam TInitializationOrder Whether initialization ordering is being derived.
         template<
+            class TRemainingProviders,
             class TArchitectureProviders,
             bool TInitializationOrder
         >
         struct FindLifecycleReadyProvider<
             ProviderList<>,
+            TRemainingProviders,
             TArchitectureProviders,
             TInitializationOrder
         > {
 
-            /// Empty-selection sentinel.
+            /// Empty-selection sentinel indicating a lifecycle cycle.
             using Type = void;
 
         };
 
 
-        /// Selects the first provider having no incoming edge, preserving declaration order for unrelated providers.
+        /// Selects the first candidate having no incoming edge from any provider still remaining.
         ///
+        /// @tparam TRemainingProviders Complete remaining provider set.
         /// @tparam TArchitectureProviders Complete Architecture provider population.
         /// @tparam TInitializationOrder Whether initialization ordering is being derived.
         /// @tparam TFirstProvider Current candidate provider Type.
-        /// @tparam TRestProviders Remaining provider Types.
+        /// @tparam TRestProviders Remaining candidate provider Types.
         template<
+            class TRemainingProviders,
             class TArchitectureProviders,
             bool TInitializationOrder,
             class TFirstProvider,
@@ -596,24 +603,23 @@ namespace ESPressio::System::CompositionFramework {
                 TFirstProvider,
                 TRestProviders...
             >,
+            TRemainingProviders,
             TArchitectureProviders,
             TInitializationOrder
         > {
 
-            /// First ready provider Type, or the result of inspecting the remaining providers.
+            /// First ready provider Type, or the result of inspecting the remaining candidates.
             using Type = std::conditional_t<
                 !HasIncomingLifecycleEdge<
                     TFirstProvider,
-                    ProviderList<
-                        TFirstProvider,
-                        TRestProviders...
-                    >,
+                    TRemainingProviders,
                     TArchitectureProviders,
                     TInitializationOrder
                 >::value,
                 TFirstProvider,
                 typename FindLifecycleReadyProvider<
                     ProviderList<TRestProviders...>,
+                    TRemainingProviders,
                     TArchitectureProviders,
                     TInitializationOrder
                 >::Type
@@ -764,6 +770,7 @@ namespace ESPressio::System::CompositionFramework {
 
                 /// First provider ready under the requested lifecycle relation.
                 using ReadyProvider = typename FindLifecycleReadyProvider<
+                    RemainingProviders,
                     RemainingProviders,
                     TArchitectureProviders,
                     TInitializationOrder
