@@ -316,6 +316,166 @@ namespace ESPressio::System::CompositionFramework {
         > {};
 
 
+        /// Resolves whether one lifecycle Requirement selects exactly one provider other than its owner.
+        ///
+        /// @tparam TOwnerProvider Provider owning the lifecycle clause.
+        /// @tparam TRequirement Lifecycle target Requirement.
+        /// @tparam TProviderList Complete Architecture provider population.
+        template<
+            class TOwnerProvider,
+            class TRequirement,
+            class TProviderList
+        >
+        struct LifecycleRequirementTargetsOtherProvider;
+
+
+        /// Evaluates one lifecycle target against a concrete provider population.
+        ///
+        /// @tparam TOwnerProvider Provider owning the lifecycle clause.
+        /// @tparam TRequirement Lifecycle target Requirement.
+        /// @tparam TProviders Architecture provider Types.
+        template<
+            class TOwnerProvider,
+            class TRequirement,
+            class... TProviders
+        >
+        struct LifecycleRequirementTargetsOtherProvider<
+            TOwnerProvider,
+            TRequirement,
+            ProviderList<TProviders...>
+        > {
+
+            private:
+
+                /// Number of providers satisfying the lifecycle target Requirement.
+                static constexpr std::size_t MatchCount =
+                    SatisfyingProviderCountV<
+                        TRequirement,
+                        TProviders...
+                    >;
+
+                /// First satisfying provider Type, used only after count validation.
+                using TargetProvider = typename FirstSatisfyingProvider<
+                    TRequirement,
+                    TProviders...
+                >::Type;
+
+
+            public:
+
+                /// Indicates whether the lifecycle target is unique and not the owning provider itself.
+                static constexpr bool IsValid =
+                    MatchCount == 1U &&
+                    !std::is_same_v<
+                        TOwnerProvider,
+                        TargetProvider
+                    >;
+
+        };
+
+
+        /// Evaluates one owner-aware provider Contract clause across an Architecture.
+        ///
+        /// @tparam TOwnerProvider Provider owning the Contract.
+        /// @tparam TClause Contract clause being evaluated.
+        /// @tparam TProviderList Complete Architecture provider population.
+        template<
+            class TOwnerProvider,
+            class TClause,
+            class TProviderList
+        >
+        struct ProviderContractClauseSatisfiedInArchitecture :
+            ContractClauseSatisfiedInArchitecture<
+                TClause,
+                TProviderList
+            > {};
+
+
+        /// Rejects ambiguous or self-referential initialization lifecycle targets.
+        ///
+        /// @tparam TOwnerProvider Provider owning the lifecycle clause.
+        /// @tparam TRequirement Initialization predecessor Requirement.
+        /// @tparam TProviderList Complete Architecture provider population.
+        template<
+            class TOwnerProvider,
+            class TRequirement,
+            class TProviderList
+        >
+        struct ProviderContractClauseSatisfiedInArchitecture<
+            TOwnerProvider,
+            InitializesAfter<TRequirement>,
+            TProviderList
+        > : std::bool_constant<
+            LifecycleRequirementTargetsOtherProvider<
+                TOwnerProvider,
+                TRequirement,
+                TProviderList
+            >::IsValid
+        > {};
+
+
+        /// Rejects ambiguous or self-referential shutdown lifecycle targets.
+        ///
+        /// @tparam TOwnerProvider Provider owning the lifecycle clause.
+        /// @tparam TRequirement Shutdown successor Requirement.
+        /// @tparam TProviderList Complete Architecture provider population.
+        template<
+            class TOwnerProvider,
+            class TRequirement,
+            class TProviderList
+        >
+        struct ProviderContractClauseSatisfiedInArchitecture<
+            TOwnerProvider,
+            ShutsDownBefore<TRequirement>,
+            TProviderList
+        > : std::bool_constant<
+            LifecycleRequirementTargetsOtherProvider<
+                TOwnerProvider,
+                TRequirement,
+                TProviderList
+            >::IsValid
+        > {};
+
+
+        /// Evaluates one provider-owned consolidated Contract across an Architecture.
+        ///
+        /// @tparam TOwnerProvider Provider owning the Contract.
+        /// @tparam TContract Contract or void while one provider remains on the temporary migration path.
+        /// @tparam TProviderList Complete Architecture provider population.
+        template<
+            class TOwnerProvider,
+            class TContract,
+            class TProviderList
+        >
+        struct ProviderContractSatisfiedInArchitecture : std::true_type {};
+
+
+        /// Evaluates every provider-owned clause in one concrete Contract.
+        ///
+        /// @tparam TOwnerProvider Provider owning the Contract.
+        /// @tparam TProviderList Complete Architecture provider population.
+        /// @tparam TClauses Contract clauses being evaluated.
+        template<
+            class TOwnerProvider,
+            class TProviderList,
+            class... TClauses
+        >
+        struct ProviderContractSatisfiedInArchitecture<
+            TOwnerProvider,
+            Contract<TClauses...>,
+            TProviderList
+        > : std::bool_constant<
+            (
+                ProviderContractClauseSatisfiedInArchitecture<
+                    TOwnerProvider,
+                    TClauses,
+                    TProviderList
+                >::value &&
+                ...
+            )
+        > {};
+
+
         /// Evaluates every provider Contract represented by one ProviderList.
         ///
         /// @tparam TProviderList Providers whose Contracts are being validated.
@@ -334,7 +494,8 @@ namespace ESPressio::System::CompositionFramework {
             TArchitectureProviders
         > : std::bool_constant<
             (
-                ContractSatisfiedInArchitecture<
+                ProviderContractSatisfiedInArchitecture<
+                    TProviders,
                     typename TProviders::CompositionContract,
                     TArchitectureProviders
                 >::value &&
