@@ -301,6 +301,168 @@ namespace ESPressio::System::CompositionFramework {
         };
 
 
+        /// Appends one provider Type only when it is not already present in a ProviderList.
+        ///
+        /// @tparam TProviderList Existing provider list.
+        /// @tparam TProvider Provider Type conditionally appended.
+        template<class TProviderList, class TProvider>
+        struct AppendUniqueProviderList;
+
+
+        /// Conditionally appends one provider Type while preserving declaration order.
+        ///
+        /// @tparam TProviders Existing provider Types.
+        /// @tparam TProvider Provider Type conditionally appended.
+        template<class... TProviders, class TProvider>
+        struct AppendUniqueProviderList<
+            ProviderList<TProviders...>,
+            TProvider
+        > {
+
+            /// Provider list with the candidate appended only when previously absent.
+            using Type = std::conditional_t<
+                ProviderList<TProviders...>::template Contains<TProvider>,
+                ProviderList<TProviders...>,
+                ProviderList<
+                    TProviders...,
+                    TProvider
+                >
+            >;
+
+        };
+
+
+        /// Adds every provider from one source list to one accumulated union.
+        ///
+        /// @tparam TAccumulatedProviders Providers already represented by the union.
+        /// @tparam TRemainingProviders Source providers still requiring inspection.
+        template<class TAccumulatedProviders, class TRemainingProviders>
+        struct UnionProviderLists;
+
+
+        /// Completes provider-list union when the source list is exhausted.
+        ///
+        /// @tparam TAccumulatedProviders Complete union result.
+        template<class TAccumulatedProviders>
+        struct UnionProviderLists<
+            TAccumulatedProviders,
+            ProviderList<>
+        > {
+
+            /// Complete union result.
+            using Type = TAccumulatedProviders;
+
+        };
+
+
+        /// Conditionally appends one source provider and continues union construction.
+        ///
+        /// @tparam TAccumulatedProviders Providers already represented by the union.
+        /// @tparam TFirstProvider Current source provider Type.
+        /// @tparam TRestProviders Remaining source provider Types.
+        template<
+            class TAccumulatedProviders,
+            class TFirstProvider,
+            class... TRestProviders
+        >
+        struct UnionProviderLists<
+            TAccumulatedProviders,
+            ProviderList<
+                TFirstProvider,
+                TRestProviders...
+            >
+        > {
+
+            private:
+
+                /// Union state after conditionally appending the current provider.
+                using NextAccumulated = typename AppendUniqueProviderList<
+                    TAccumulatedProviders,
+                    TFirstProvider
+                >::Type;
+
+
+            public:
+
+                /// Complete declaration-order-preserving union result.
+                using Type = typename UnionProviderLists<
+                    NextAccumulated,
+                    ProviderList<TRestProviders...>
+                >::Type;
+
+        };
+
+
+        /// Filters one ProviderList using one compile-time unary predicate class template.
+        ///
+        /// The predicate must expose a Boolean `value` member for each provider Type.
+        ///
+        /// @tparam TProviderList Providers being filtered.
+        /// @tparam TPredicate Unary predicate class template.
+        template<
+            class TProviderList,
+            template<class> class TPredicate
+        >
+        struct FilterProviderList;
+
+
+        /// Completes filtering when no providers remain.
+        ///
+        /// @tparam TPredicate Unary predicate class template.
+        template<template<class> class TPredicate>
+        struct FilterProviderList<
+            ProviderList<>,
+            TPredicate
+        > {
+
+            /// Empty filtering result.
+            using Type = ProviderList<>;
+
+        };
+
+
+        /// Filters one provider and continues recursively.
+        ///
+        /// @tparam TPredicate Unary predicate class template.
+        /// @tparam TFirstProvider Current provider Type.
+        /// @tparam TRestProviders Remaining provider Types.
+        template<
+            template<class> class TPredicate,
+            class TFirstProvider,
+            class... TRestProviders
+        >
+        struct FilterProviderList<
+            ProviderList<
+                TFirstProvider,
+                TRestProviders...
+            >,
+            TPredicate
+        > {
+
+            private:
+
+                /// Filtering result for the remaining provider Types.
+                using Remaining = typename FilterProviderList<
+                    ProviderList<TRestProviders...>,
+                    TPredicate
+                >::Type;
+
+
+            public:
+
+                /// Ordered filtering result.
+                using Type = std::conditional_t<
+                    TPredicate<TFirstProvider>::value,
+                    typename PrependProviderList<
+                        TFirstProvider,
+                        Remaining
+                    >::Type,
+                    Remaining
+                >;
+
+        };
+
+
         /// Concatenates two ProviderLists without changing either list's declaration order.
         ///
         /// @tparam TLeftProviders Left provider list.
@@ -1995,6 +2157,33 @@ namespace ESPressio::System::CompositionFramework {
         TLeftProviders,
         TRightProviders
     >::Type;
+
+    /// Returns the declaration-order-preserving union of two ProviderLists.
+    ///
+    /// Providers already represented by the left list retain their positions; new providers from the
+    /// right list are appended in right-list declaration order.
+    ///
+    /// @tparam TLeftProviders Left ProviderList controlling initial order.
+    /// @tparam TRightProviders Right ProviderList contributing previously absent providers.
+    template<class TLeftProviders, class TRightProviders>
+    using ProviderListUnion = typename Detail::UnionProviderLists<
+        TLeftProviders,
+        TRightProviders
+    >::Type;
+
+    /// Filters one ProviderList through a compile-time unary predicate.
+    ///
+    /// @tparam TProviderList ProviderList being filtered.
+    /// @tparam TPredicate Predicate class template exposing Boolean `value`.
+    template<
+        class TProviderList,
+        template<class> class TPredicate
+    >
+    using ProviderListFilter = typename Detail::FilterProviderList<
+        TProviderList,
+        TPredicate
+    >::Type;
+
 
     /// Returns the ordered intersection of two ProviderLists.
     ///
