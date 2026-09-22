@@ -714,6 +714,463 @@ namespace ESPressio::System::CompositionFramework {
         > {};
 
 
+        /// Indicates whether one provider advertises a requested Property.
+        ///
+        /// @tparam TProvider Provider Type being inspected.
+        /// @tparam TProperty Property whose presence is required.
+        /// @tparam TProvidesCapability Whether the provider supplies the Property's owning Capability.
+        template<
+            class TProvider,
+            class TProperty,
+            bool TProvidesCapability = ProviderProvidesV<
+                TProvider,
+                typename TProperty::CapabilityType
+            >
+        >
+        struct ProviderAdvertisesProperty : std::false_type {};
+
+
+        /// Inspects Property presence after confirming the provider supplies its owning Capability.
+        ///
+        /// @tparam TProvider Provider Type being inspected.
+        /// @tparam TProperty Property whose presence is required.
+        template<class TProvider, class TProperty>
+        struct ProviderAdvertisesProperty<
+            TProvider,
+            TProperty,
+            true
+        > : std::bool_constant<
+            TProvider::CompositionCapabilities::template PropertiesFor<
+                typename TProperty::CapabilityType
+            >::template Contains<TProperty>
+        > {};
+
+
+        /// Returns one provider's compile-time Property value.
+        ///
+        /// @tparam TProvider Provider Type being inspected.
+        /// @tparam TProperty Property whose value is requested.
+        template<class TProvider, class TProperty>
+        inline constexpr auto ProviderPropertyValueV =
+            TProvider::CompositionCapabilities::template PropertiesFor<
+                typename TProperty::CapabilityType
+            >::template Value<TProperty>;
+
+
+        /// Indicates whether one provider is tied for the best Property value in a candidate pack.
+        ///
+        /// @tparam TCandidate Candidate provider Type.
+        /// @tparam TProperty Property used for ordering.
+        /// @tparam TMinimize Whether lower values are preferred.
+        /// @tparam TProviders Complete candidate provider pack.
+        template<
+            class TCandidate,
+            class TProperty,
+            bool TMinimize,
+            class... TProviders
+        >
+        inline constexpr bool IsBestProviderV = []() consteval {
+            if constexpr (TMinimize) {
+                return (
+                    (
+                        ProviderPropertyValueV<
+                            TCandidate,
+                            TProperty
+                        > <=
+                        ProviderPropertyValueV<
+                            TProviders,
+                            TProperty
+                        >
+                    ) &&
+                    ...
+                );
+            } else {
+                return (
+                    (
+                        ProviderPropertyValueV<
+                            TCandidate,
+                            TProperty
+                        > >=
+                        ProviderPropertyValueV<
+                            TProviders,
+                            TProperty
+                        >
+                    ) &&
+                    ...
+                );
+            }
+        }();
+
+
+        /// Filters a ProviderList to every provider tied for one best Property value.
+        ///
+        /// @tparam TProperty Property used for ordering.
+        /// @tparam TMinimize Whether lower values are preferred.
+        /// @tparam TCandidates Complete candidate ProviderList.
+        /// @tparam TRemaining Remaining providers being inspected.
+        template<
+            class TProperty,
+            bool TMinimize,
+            class TCandidates,
+            class TRemaining
+        >
+        struct FilterBestProviders;
+
+
+        /// Completes best-provider filtering.
+        ///
+        /// @tparam TProperty Property used for ordering.
+        /// @tparam TMinimize Whether lower values are preferred.
+        /// @tparam TCandidates Complete candidate ProviderList.
+        template<
+            class TProperty,
+            bool TMinimize,
+            class TCandidates
+        >
+        struct FilterBestProviders<
+            TProperty,
+            TMinimize,
+            TCandidates,
+            ProviderList<>
+        > {
+
+            /// Empty terminal result.
+            using Type = ProviderList<>;
+
+        };
+
+
+        /// Evaluates one best-provider candidate and continues filtering.
+        ///
+        /// @tparam TProperty Property used for ordering.
+        /// @tparam TMinimize Whether lower values are preferred.
+        /// @tparam TCandidateProviders Complete candidate provider pack.
+        /// @tparam TFirstProvider Current provider Type.
+        /// @tparam TRestProviders Remaining provider Types.
+        template<
+            class TProperty,
+            bool TMinimize,
+            class... TCandidateProviders,
+            class TFirstProvider,
+            class... TRestProviders
+        >
+        struct FilterBestProviders<
+            TProperty,
+            TMinimize,
+            ProviderList<TCandidateProviders...>,
+            ProviderList<
+                TFirstProvider,
+                TRestProviders...
+            >
+        > {
+
+            private:
+
+                /// Best-provider result for the remaining candidates.
+                using Remaining = typename FilterBestProviders<
+                    TProperty,
+                    TMinimize,
+                    ProviderList<TCandidateProviders...>,
+                    ProviderList<TRestProviders...>
+                >::Type;
+
+
+            public:
+
+                /// Ordered best-provider result.
+                using Type = std::conditional_t<
+                    IsBestProviderV<
+                        TFirstProvider,
+                        TProperty,
+                        TMinimize,
+                        TCandidateProviders...
+                    >,
+                    typename PrependProviderList<
+                        TFirstProvider,
+                        Remaining
+                    >::Type,
+                    Remaining
+                >;
+
+        };
+
+
+        /// Validates and resolves every provider tied for one best Property value.
+        ///
+        /// @tparam TProperty Property used for ordering.
+        /// @tparam TMinimize Whether lower values are preferred.
+        /// @tparam TProviderList Candidate providers.
+        template<
+            class TProperty,
+            bool TMinimize,
+            class TProviderList
+        >
+        struct BestProviderList;
+
+
+        /// Resolves best providers from one concrete candidate pack.
+        ///
+        /// @tparam TProperty Property used for ordering.
+        /// @tparam TMinimize Whether lower values are preferred.
+        /// @tparam TProviders Candidate provider Types.
+        template<
+            class TProperty,
+            bool TMinimize,
+            class... TProviders
+        >
+        struct BestProviderList<
+            TProperty,
+            TMinimize,
+            ProviderList<TProviders...>
+        > {
+
+            static_assert(
+                IsPropertyV<TProperty>,
+                "Best-provider selection requires a concrete composition Property"
+            );
+
+            static_assert(
+                (ProviderAdvertisesProperty<TProviders, TProperty>::value && ...),
+                "Every ranked provider must advertise the Property used by the selection policy"
+            );
+
+            /// Providers tied for the best Property value in original declaration order.
+            using Type = typename FilterBestProviders<
+                TProperty,
+                TMinimize,
+                ProviderList<TProviders...>,
+                ProviderList<TProviders...>
+            >::Type;
+
+        };
+
+
+        /// Resolves one explicit selection policy against a Requirement match list.
+        ///
+        /// @tparam TRequirement Requirement whose matches are being selected.
+        /// @tparam TSelectionPolicy Explicit selection policy.
+        /// @tparam TProviderList Providers satisfying the Requirement qualification.
+        template<
+            class TRequirement,
+            class TSelectionPolicy,
+            class TProviderList
+        >
+        struct SelectionResult;
+
+
+        /// Selects every satisfying provider.
+        ///
+        /// @tparam TRequirement Requirement whose matches are being selected.
+        /// @tparam TProviderList Matching providers.
+        template<class TRequirement, class TProviderList>
+        struct SelectionResult<
+            TRequirement,
+            SelectAll,
+            TProviderList
+        > {
+
+            /// Complete matching ProviderList.
+            using Type = TProviderList;
+
+        };
+
+
+        /// Selects exactly one satisfying provider.
+        ///
+        /// @tparam TRequirement Requirement whose matches are being selected.
+        /// @tparam TProviderList Matching providers.
+        template<class TRequirement, class TProviderList>
+        struct SelectionResult<
+            TRequirement,
+            SelectUnique,
+            TProviderList
+        > {
+
+            static_assert(
+                TProviderList::Count == 1U,
+                "SelectUnique requires exactly one satisfying provider"
+            );
+
+            /// Unique satisfying provider Type.
+            using Type = typename TProviderList::Front;
+
+        };
+
+
+        /// Selects zero or one satisfying provider.
+        ///
+        /// @tparam TRequirement Requirement whose matches are being selected.
+        /// @tparam TProviderList Matching providers.
+        template<class TRequirement, class TProviderList>
+        struct SelectionResult<
+            TRequirement,
+            SelectOptionalUnique,
+            TProviderList
+        > {
+
+            static_assert(
+                TProviderList::Count <= 1U,
+                "SelectOptionalUnique rejects ambiguous provider matches"
+            );
+
+            /// Unique satisfying provider Type, or void when no provider matches.
+            using Type = typename TProviderList::Front;
+
+        };
+
+
+        /// Selects the unique provider advertising the minimum Property value.
+        ///
+        /// @tparam TRequirement Requirement whose matches are being ranked.
+        /// @tparam TProperty Property used for ranking.
+        /// @tparam TProviderList Matching providers.
+        template<
+            class TRequirement,
+            class TProperty,
+            class TProviderList
+        >
+        struct SelectionResult<
+            TRequirement,
+            SelectMinimum<TProperty>,
+            TProviderList
+        > {
+
+            static_assert(
+                IsPropertyForV<
+                    typename TRequirement::CapabilityType,
+                    TProperty
+                >,
+                "SelectMinimum Property must belong to the Requirement Capability"
+            );
+
+            /// Providers tied for the minimum Property value.
+            using BestProviders = typename BestProviderList<
+                TProperty,
+                true,
+                TProviderList
+            >::Type;
+
+            static_assert(
+                BestProviders::Count == 1U,
+                "SelectMinimum requires one unique minimum Property value"
+            );
+
+            /// Provider Type advertising the unique minimum value.
+            using Type = typename BestProviders::Front;
+
+        };
+
+
+        /// Selects the unique provider advertising the maximum Property value.
+        ///
+        /// @tparam TRequirement Requirement whose matches are being ranked.
+        /// @tparam TProperty Property used for ranking.
+        /// @tparam TProviderList Matching providers.
+        template<
+            class TRequirement,
+            class TProperty,
+            class TProviderList
+        >
+        struct SelectionResult<
+            TRequirement,
+            SelectMaximum<TProperty>,
+            TProviderList
+        > {
+
+            static_assert(
+                IsPropertyForV<
+                    typename TRequirement::CapabilityType,
+                    TProperty
+                >,
+                "SelectMaximum Property must belong to the Requirement Capability"
+            );
+
+            /// Providers tied for the maximum Property value.
+            using BestProviders = typename BestProviderList<
+                TProperty,
+                false,
+                TProviderList
+            >::Type;
+
+            static_assert(
+                BestProviders::Count == 1U,
+                "SelectMaximum requires one unique maximum Property value"
+            );
+
+            /// Provider Type advertising the unique maximum value.
+            using Type = typename BestProviders::Front;
+
+        };
+
+
+        /// Selects every provider tied for the minimum Property value.
+        ///
+        /// @tparam TRequirement Requirement whose matches are being ranked.
+        /// @tparam TProperty Property used for ranking.
+        /// @tparam TProviderList Matching providers.
+        template<
+            class TRequirement,
+            class TProperty,
+            class TProviderList
+        >
+        struct SelectionResult<
+            TRequirement,
+            SelectAllMinimum<TProperty>,
+            TProviderList
+        > {
+
+            static_assert(
+                IsPropertyForV<
+                    typename TRequirement::CapabilityType,
+                    TProperty
+                >,
+                "SelectAllMinimum Property must belong to the Requirement Capability"
+            );
+
+            /// Providers tied for the minimum Property value.
+            using Type = typename BestProviderList<
+                TProperty,
+                true,
+                TProviderList
+            >::Type;
+
+        };
+
+
+        /// Selects every provider tied for the maximum Property value.
+        ///
+        /// @tparam TRequirement Requirement whose matches are being ranked.
+        /// @tparam TProperty Property used for ranking.
+        /// @tparam TProviderList Matching providers.
+        template<
+            class TRequirement,
+            class TProperty,
+            class TProviderList
+        >
+        struct SelectionResult<
+            TRequirement,
+            SelectAllMaximum<TProperty>,
+            TProviderList
+        > {
+
+            static_assert(
+                IsPropertyForV<
+                    typename TRequirement::CapabilityType,
+                    TProperty
+                >,
+                "SelectAllMaximum Property must belong to the Requirement Capability"
+            );
+
+            /// Providers tied for the maximum Property value.
+            using Type = typename BestProviderList<
+                TProperty,
+                false,
+                TProviderList
+            >::Type;
+
+        };
+
+
         /// Determines whether all offers in a Provides declaration obey exclusive-capability rules.
         template<class TProvides, class TDomain, class... TProviders>
         struct ProvidesIsConflictFree;
@@ -729,6 +1186,48 @@ namespace ESPressio::System::CompositionFramework {
         > {};
 
     } // ESPressio::System::CompositionFramework::Detail
+
+
+    /// Compile-time diagnostics describing whether one provider satisfies one Requirement qualification.
+    ///
+    /// @tparam TProvider Provider Type being inspected.
+    /// @tparam TRequirement Requirement or temporary Need being evaluated.
+    template<class TProvider, class TRequirement>
+    struct ProviderMatch {
+
+        static_assert(
+            Detail::NeedTraits<TRequirement>::IsValid,
+            "ProviderMatch requires a valid Requirement"
+        );
+
+        // Match diagnostics.
+
+        /// Indicates whether the provider supplies the requested Capability.
+        static constexpr bool ProvidesCapability =
+            Detail::ProviderProvidesV<
+                TProvider,
+                typename TRequirement::CapabilityType
+            >;
+
+        /// Indicates whether every qualification constraint is satisfied when the Capability is supplied.
+        static constexpr bool ConstraintsSatisfied = []() constexpr {
+            if constexpr (!ProvidesCapability) {
+                return false;
+            } else {
+                using OfferType = typename TProvider::CompositionCapabilities::template OfferFor<
+                    typename TRequirement::CapabilityType
+                >;
+
+                return TRequirement::template OfferSatisfied<OfferType>;
+            }
+        }();
+
+        /// Indicates whether the provider satisfies the complete Requirement qualification.
+        static constexpr bool IsSatisfied =
+            ProvidesCapability &&
+            ConstraintsSatisfied;
+
+    };
 
 
     /// Concatenates two ProviderLists while preserving each list's declaration order.
@@ -938,6 +1437,56 @@ namespace ESPressio::System::CompositionFramework {
         /// Returns the single provider satisfying one complete Need declaration.
         template<class TNeed>
         using ProviderSatisfying = typename ResolveProviderSatisfying<TNeed>::Type;
+
+
+        // Consolidated Requirement queries.
+
+        /// Returns the number of providers matching one Requirement qualification.
+        ///
+        /// @tparam TRequirement Requirement being queried.
+        template<class TRequirement>
+        static constexpr std::size_t MatchCount =
+            ProviderCountSatisfying<TRequirement>;
+
+        /// Indicates whether at least one provider matches one Requirement qualification.
+        ///
+        /// @tparam TRequirement Requirement being queried.
+        template<class TRequirement>
+        static constexpr bool HasMatch =
+            MatchCount<TRequirement> > 0U;
+
+        /// Returns every provider matching one Requirement qualification.
+        ///
+        /// @tparam TRequirement Requirement being queried.
+        template<class TRequirement>
+        using Matches = ProvidersSatisfying<TRequirement>;
+
+        /// Indicates whether the matching provider population obeys one Requirement's cardinality.
+        ///
+        /// Temporary legacy Need declarations retain their historical at-least-one semantics.
+        ///
+        /// @tparam TRequirement Requirement being validated.
+        template<class TRequirement>
+        static constexpr bool SatisfiesRequirement =
+            Detail::RequirementCardinalitySatisfied<
+                TRequirement,
+                MatchCount<TRequirement>
+            >::value;
+
+        /// Resolves Requirement matches using one explicit selection policy.
+        ///
+        /// @tparam TRequirement Requirement whose matching providers are being selected.
+        /// @tparam TSelectionPolicy Explicit provider selection policy.
+        template<
+            class TRequirement,
+            class TSelectionPolicy = SelectUnique
+        >
+        using Select = typename Detail::SelectionResult<
+            TRequirement,
+            TSelectionPolicy,
+            Matches<TRequirement>
+        >::Type;
+
 
         // Provider property queries.
 
