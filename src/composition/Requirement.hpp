@@ -769,11 +769,10 @@ namespace ESPressio::System::CompositionFramework {
                 using AttributeType = typename TAttributeSet::template Resolve<TName>::Type;
                 constexpr auto actualValue = Detail::AttributeTraits<AttributeType>::Value;
 
-                if constexpr (requires { actualValue != TUnexpectedValue; }) {
-                    return actualValue != TUnexpectedValue;
-                }
-
-                return false;
+                return Detail::AttributeValuesNotEqual<
+                    actualValue,
+                    TUnexpectedValue
+                >();
             }
         }
 
@@ -812,10 +811,10 @@ namespace ESPressio::System::CompositionFramework {
                 constexpr auto actualValue = Detail::AttributeTraits<AttributeType>::Value;
 
                 return (
-                    (
-                        requires { actualValue == TAllowedValues; } &&
-                        actualValue == TAllowedValues
-                    ) ||
+                    Detail::AttributeValuesEqual<
+                        actualValue,
+                        TAllowedValues
+                    >() ||
                     ...
                 );
             }
@@ -856,10 +855,10 @@ namespace ESPressio::System::CompositionFramework {
                 constexpr auto actualValue = Detail::AttributeTraits<AttributeType>::Value;
 
                 return (
-                    (
-                        requires { actualValue != TExcludedValues; } &&
-                        actualValue != TExcludedValues
-                    ) &&
+                    Detail::AttributeValuesNotEqual<
+                        actualValue,
+                        TExcludedValues
+                    >() &&
                     ...
                 );
             }
@@ -868,7 +867,278 @@ namespace ESPressio::System::CompositionFramework {
     };
 
 
+    /// Requires one ordered Attribute value to be greater than or equal to the supplied value.
+    ///
+    /// Missing or non-orderable Attributes do not satisfy this constraint.
+    ///
+    /// @tparam TName Attribute name being evaluated.
+    /// @tparam TMinimum Inclusive lower bound.
+    template<FixedString TName, auto TMinimum>
+    struct AttributeAtLeast {
+
+        // Attribute-constraint metadata.
+
+        /// Marker identifying an Attribute constraint.
+        using AttributeConstraintTag = void;
+
+
+        // Constraint evaluation.
+
+        /// Indicates whether the Attribute is present, orderable and no smaller than the supplied bound.
+        ///
+        /// @tparam TAttributeSet AttributeSet being evaluated.
+        template<class TAttributeSet>
+        static constexpr bool IsSatisfied() noexcept {
+            if constexpr (!TAttributeSet::template Contains<TName>) {
+                return false;
+            } else {
+                using AttributeType = typename TAttributeSet::template Resolve<TName>::Type;
+                constexpr auto actualValue = Detail::AttributeTraits<AttributeType>::Value;
+
+                return Detail::AttributeValueAtLeast<
+                    actualValue,
+                    TMinimum
+                >();
+            }
+        }
+
+    };
+
+
+    /// Requires one ordered Attribute value to be less than or equal to the supplied value.
+    ///
+    /// @tparam TName Attribute name being evaluated.
+    /// @tparam TMaximum Inclusive upper bound.
+    template<FixedString TName, auto TMaximum>
+    struct AttributeAtMost {
+
+        // Attribute-constraint metadata.
+
+        /// Marker identifying an Attribute constraint.
+        using AttributeConstraintTag = void;
+
+
+        // Constraint evaluation.
+
+        /// Indicates whether the Attribute is present, orderable and no larger than the supplied bound.
+        ///
+        /// @tparam TAttributeSet AttributeSet being evaluated.
+        template<class TAttributeSet>
+        static constexpr bool IsSatisfied() noexcept {
+            if constexpr (!TAttributeSet::template Contains<TName>) {
+                return false;
+            } else {
+                using AttributeType = typename TAttributeSet::template Resolve<TName>::Type;
+                constexpr auto actualValue = Detail::AttributeTraits<AttributeType>::Value;
+
+                return Detail::AttributeValueAtMost<
+                    actualValue,
+                    TMaximum
+                >();
+            }
+        }
+
+    };
+
+
+    /// Requires one ordered Attribute value to be strictly greater than the supplied value.
+    ///
+    /// @tparam TName Attribute name being evaluated.
+    /// @tparam TMinimum Exclusive lower bound.
+    template<FixedString TName, auto TMinimum>
+    struct AttributeGreaterThan {
+
+        // Attribute-constraint metadata.
+
+        /// Marker identifying an Attribute constraint.
+        using AttributeConstraintTag = void;
+
+
+        // Constraint evaluation.
+
+        /// Indicates whether the Attribute is present, orderable and greater than the supplied bound.
+        ///
+        /// @tparam TAttributeSet AttributeSet being evaluated.
+        template<class TAttributeSet>
+        static constexpr bool IsSatisfied() noexcept {
+            if constexpr (!TAttributeSet::template Contains<TName>) {
+                return false;
+            } else {
+                using AttributeType = typename TAttributeSet::template Resolve<TName>::Type;
+                constexpr auto actualValue = Detail::AttributeTraits<AttributeType>::Value;
+
+                return Detail::AttributeValueGreaterThan<
+                    actualValue,
+                    TMinimum
+                >();
+            }
+        }
+
+    };
+
+
+    /// Requires one ordered Attribute value to be strictly less than the supplied value.
+    ///
+    /// @tparam TName Attribute name being evaluated.
+    /// @tparam TMaximum Exclusive upper bound.
+    template<FixedString TName, auto TMaximum>
+    struct AttributeLessThan {
+
+        // Attribute-constraint metadata.
+
+        /// Marker identifying an Attribute constraint.
+        using AttributeConstraintTag = void;
+
+
+        // Constraint evaluation.
+
+        /// Indicates whether the Attribute is present, orderable and less than the supplied bound.
+        ///
+        /// @tparam TAttributeSet AttributeSet being evaluated.
+        template<class TAttributeSet>
+        static constexpr bool IsSatisfied() noexcept {
+            if constexpr (!TAttributeSet::template Contains<TName>) {
+                return false;
+            } else {
+                using AttributeType = typename TAttributeSet::template Resolve<TName>::Type;
+                constexpr auto actualValue = Detail::AttributeTraits<AttributeType>::Value;
+
+                return Detail::AttributeValueLessThan<
+                    actualValue,
+                    TMaximum
+                >();
+            }
+        }
+
+    };
+
+
+    /// Requires one ordered Attribute value to fall within the supplied inclusive interval.
+    ///
+    /// @tparam TName Attribute name being evaluated.
+    /// @tparam TMinimum Inclusive lower bound.
+    /// @tparam TMaximum Inclusive upper bound.
+    template<FixedString TName, auto TMinimum, auto TMaximum>
+    struct AttributeBetween {
+
+        // Attribute-constraint metadata.
+
+        /// Marker identifying an Attribute constraint.
+        using AttributeConstraintTag = void;
+
+
+        // Constraint evaluation.
+
+        /// Indicates whether the Attribute is present, orderable and inside the inclusive interval.
+        ///
+        /// @tparam TAttributeSet AttributeSet being evaluated.
+        template<class TAttributeSet>
+        static constexpr bool IsSatisfied() noexcept {
+            if constexpr (!TAttributeSet::template Contains<TName>) {
+                return false;
+            } else {
+                using AttributeType = typename TAttributeSet::template Resolve<TName>::Type;
+                constexpr auto actualValue = Detail::AttributeTraits<AttributeType>::Value;
+
+                return Detail::AttributeValueAtLeast<
+                    actualValue,
+                    TMinimum
+                >() &&
+                Detail::AttributeValueAtMost<
+                    actualValue,
+                    TMaximum
+                >();
+            }
+        }
+
+    };
+
+
     namespace Detail {
+
+        /// Safely compares two compile-time Attribute values for equality.
+        ///
+        /// @tparam TLeftValue Left compile-time value.
+        /// @tparam TRightValue Right compile-time value.
+        template<auto TLeftValue, auto TRightValue>
+        consteval bool AttributeValuesEqual() noexcept {
+            if constexpr (requires { TLeftValue == TRightValue; }) {
+                return TLeftValue == TRightValue;
+            } else {
+                return false;
+            }
+        }
+
+
+        /// Safely compares two compile-time Attribute values for inequality.
+        ///
+        /// @tparam TLeftValue Left compile-time value.
+        /// @tparam TRightValue Right compile-time value.
+        template<auto TLeftValue, auto TRightValue>
+        consteval bool AttributeValuesNotEqual() noexcept {
+            if constexpr (requires { TLeftValue != TRightValue; }) {
+                return TLeftValue != TRightValue;
+            } else {
+                return false;
+            }
+        }
+
+
+        /// Safely compares two compile-time Attribute values using greater-than-or-equal ordering.
+        ///
+        /// @tparam TLeftValue Left compile-time value.
+        /// @tparam TRightValue Right compile-time value.
+        template<auto TLeftValue, auto TRightValue>
+        consteval bool AttributeValueAtLeast() noexcept {
+            if constexpr (requires { TLeftValue >= TRightValue; }) {
+                return TLeftValue >= TRightValue;
+            } else {
+                return false;
+            }
+        }
+
+
+        /// Safely compares two compile-time Attribute values using less-than-or-equal ordering.
+        ///
+        /// @tparam TLeftValue Left compile-time value.
+        /// @tparam TRightValue Right compile-time value.
+        template<auto TLeftValue, auto TRightValue>
+        consteval bool AttributeValueAtMost() noexcept {
+            if constexpr (requires { TLeftValue <= TRightValue; }) {
+                return TLeftValue <= TRightValue;
+            } else {
+                return false;
+            }
+        }
+
+
+        /// Safely compares two compile-time Attribute values using strict greater-than ordering.
+        ///
+        /// @tparam TLeftValue Left compile-time value.
+        /// @tparam TRightValue Right compile-time value.
+        template<auto TLeftValue, auto TRightValue>
+        consteval bool AttributeValueGreaterThan() noexcept {
+            if constexpr (requires { TLeftValue > TRightValue; }) {
+                return TLeftValue > TRightValue;
+            } else {
+                return false;
+            }
+        }
+
+
+        /// Safely compares two compile-time Attribute values using strict less-than ordering.
+        ///
+        /// @tparam TLeftValue Left compile-time value.
+        /// @tparam TRightValue Right compile-time value.
+        template<auto TLeftValue, auto TRightValue>
+        consteval bool AttributeValueLessThan() noexcept {
+            if constexpr (requires { TLeftValue < TRightValue; }) {
+                return TLeftValue < TRightValue;
+            } else {
+                return false;
+            }
+        }
+
 
         /// Default logical-constraint metadata for unrelated Types.
         ///
