@@ -1171,6 +1171,337 @@ namespace ESPressio::System::CompositionFramework {
         };
 
 
+        /// Indicates whether one provider jointly satisfies every Requirement in a RequirementList.
+        ///
+        /// @tparam TProvider Provider Type being inspected.
+        /// @tparam TRequirementList Requirements which must all match the same provider.
+        template<class TProvider, class TRequirementList>
+        struct ProviderSatisfiesRequirementList;
+
+
+        /// Evaluates one concrete Requirement pack against one provider.
+        ///
+        /// @tparam TProvider Provider Type being inspected.
+        /// @tparam TRequirements Requirements which must all match.
+        template<class TProvider, class... TRequirements>
+        struct ProviderSatisfiesRequirementList<
+            TProvider,
+            RequirementList<TRequirements...>
+        > : std::bool_constant<
+            (ProviderSatisfiesNeed<TProvider, TRequirements>::value && ...)
+        > {};
+
+
+        /// Counts providers jointly satisfying every Requirement in one RequirementList.
+        ///
+        /// @tparam TRequirementList Requirements being jointly evaluated.
+        /// @tparam TProviders Candidate provider Types.
+        template<class TRequirementList, class... TProviders>
+        inline constexpr std::size_t JointlySatisfyingProviderCountV =
+            (
+                std::size_t{0U} +
+                ... +
+                (
+                    ProviderSatisfiesRequirementList<
+                        TProviders,
+                        TRequirementList
+                    >::value
+                        ? std::size_t{1U}
+                        : std::size_t{0U}
+                )
+            );
+
+
+        /// Indicates whether every Requirement in one RequirementList has the supplied scope.
+        ///
+        /// @tparam TRequirementList Requirement list being inspected.
+        /// @tparam TScope Scope required from every Requirement.
+        template<class TRequirementList, RequirementScope TScope>
+        struct RequirementsHaveScope;
+
+
+        /// Evaluates one Requirement pack for a common scope.
+        ///
+        /// @tparam TRequirements Requirements being inspected.
+        /// @tparam TScope Scope required from every Requirement.
+        template<class... TRequirements, RequirementScope TScope>
+        struct RequirementsHaveScope<
+            RequirementList<TRequirements...>,
+            TScope
+        > : std::bool_constant<
+            ((TRequirements::Scope == TScope) && ...)
+        > {};
+
+
+        /// Forward declaration for exhaustive distinct-provider assignment.
+        ///
+        /// @tparam TRequirements Requirements still requiring distinct providers.
+        /// @tparam TAvailableProviders Provider Types still available for assignment.
+        template<class TRequirements, class TAvailableProviders>
+        struct DistinctAssignmentExists;
+
+
+        /// Tries available providers for one Requirement and recursively assigns the remainder.
+        ///
+        /// @tparam TRequirement Current Requirement being assigned.
+        /// @tparam TRestRequirements Remaining Requirements after the current one.
+        /// @tparam TAvailableProviders Complete currently available provider list.
+        /// @tparam TCandidates Remaining candidate provider Types to try.
+        template<
+            class TRequirement,
+            class TRestRequirements,
+            class TAvailableProviders,
+            class TCandidates
+        >
+        struct TryDistinctProviderAssignments;
+
+
+        /// No candidate can satisfy the current Requirement.
+        ///
+        /// @tparam TRequirement Current Requirement being assigned.
+        /// @tparam TRestRequirements Remaining Requirements.
+        /// @tparam TAvailableProviders Complete currently available provider list.
+        template<
+            class TRequirement,
+            class TRestRequirements,
+            class TAvailableProviders
+        >
+        struct TryDistinctProviderAssignments<
+            TRequirement,
+            TRestRequirements,
+            TAvailableProviders,
+            ProviderList<>
+        > : std::false_type {};
+
+
+        /// Tries one candidate provider before recursively trying the remaining candidates.
+        ///
+        /// @tparam TRequirement Current Requirement being assigned.
+        /// @tparam TRestRequirements Remaining Requirements.
+        /// @tparam TAvailableProviders Complete currently available provider list.
+        /// @tparam TFirstProvider Current candidate provider Type.
+        /// @tparam TRestProviders Remaining candidate provider Types.
+        template<
+            class TRequirement,
+            class TRestRequirements,
+            class TAvailableProviders,
+            class TFirstProvider,
+            class... TRestProviders
+        >
+        struct TryDistinctProviderAssignments<
+            TRequirement,
+            TRestRequirements,
+            TAvailableProviders,
+            ProviderList<
+                TFirstProvider,
+                TRestProviders...
+            >
+        > : std::bool_constant<
+            (
+                ProviderSatisfiesNeed<
+                    TFirstProvider,
+                    TRequirement
+                >::value &&
+                DistinctAssignmentExists<
+                    TRestRequirements,
+                    typename RemoveProviderFromList<
+                        TFirstProvider,
+                        TAvailableProviders
+                    >::Type
+                >::value
+            ) ||
+            TryDistinctProviderAssignments<
+                TRequirement,
+                TRestRequirements,
+                TAvailableProviders,
+                ProviderList<TRestProviders...>
+            >::value
+        > {};
+
+
+        /// An empty Requirement list always has a complete distinct assignment.
+        ///
+        /// @tparam TAvailableProviders Provider Types which remain unused.
+        template<class TAvailableProviders>
+        struct DistinctAssignmentExists<
+            RequirementList<>,
+            TAvailableProviders
+        > : std::true_type {};
+
+
+        /// Assigns the first Requirement and recursively assigns every remaining Requirement.
+        ///
+        /// @tparam TFirstRequirement Current Requirement being assigned.
+        /// @tparam TRestRequirements Remaining Requirements.
+        /// @tparam TAvailableProviders Provider Types available for distinct assignment.
+        template<
+            class TFirstRequirement,
+            class... TRestRequirements,
+            class TAvailableProviders
+        >
+        struct DistinctAssignmentExists<
+            RequirementList<
+                TFirstRequirement,
+                TRestRequirements...
+            >,
+            TAvailableProviders
+        > : TryDistinctProviderAssignments<
+            TFirstRequirement,
+            RequirementList<TRestRequirements...>,
+            TAvailableProviders,
+            TAvailableProviders
+        > {};
+
+
+        /// Evaluates one provider Contract clause inside a single-domain Composition.
+        ///
+        /// Cross-domain clauses are deferred until Architecture validation.
+        ///
+        /// @tparam TClause Contract clause being evaluated.
+        /// @tparam TProviders Providers participating in the Composition.
+        template<class TClause, class... TProviders>
+        struct ContractClauseSatisfiedInComposition : std::true_type {};
+
+
+        /// Evaluates one direct consolidated Requirement inside a Composition.
+        ///
+        /// @tparam TCapability Requested Capability.
+        /// @tparam TScope Requirement scope.
+        /// @tparam TCardinality Accepted satisfying-provider count.
+        /// @tparam TConstraints Requirement qualification constraints.
+        /// @tparam TProviders Providers participating in the Composition.
+        template<
+            class TCapability,
+            RequirementScope TScope,
+            class TCardinality,
+            class... TConstraints,
+            class... TProviders
+        >
+        struct ContractClauseSatisfiedInComposition<
+            Requirement<
+                TCapability,
+                TScope,
+                TCardinality,
+                TConstraints...
+            >,
+            TProviders...
+        > : std::bool_constant<
+            TScope != RequirementScope::SameDomain ||
+            RequirementCardinalitySatisfied<
+                Requirement<
+                    TCapability,
+                    TScope,
+                    TCardinality,
+                    TConstraints...
+                >,
+                SatisfyingProviderCountV<
+                    Requirement<
+                        TCapability,
+                        TScope,
+                        TCardinality,
+                        TConstraints...
+                    >,
+                    TProviders...
+                >
+            >::value
+        > {};
+
+
+        /// Evaluates one SameProvider clause when it targets the owning Composition Domain.
+        ///
+        /// @tparam TRequirements Requirements which must be jointly satisfied.
+        /// @tparam TProviders Providers participating in the Composition.
+        template<class... TRequirements, class... TProviders>
+        struct ContractClauseSatisfiedInComposition<
+            SameProvider<TRequirements...>,
+            TProviders...
+        > : std::bool_constant<
+            !RequirementsHaveScope<
+                RequirementList<TRequirements...>,
+                RequirementScope::SameDomain
+            >::value ||
+            JointlySatisfyingProviderCountV<
+                RequirementList<TRequirements...>,
+                TProviders...
+            > > 0U
+        > {};
+
+
+        /// Evaluates one DistinctProviders clause when it targets only the owning Composition Domain.
+        ///
+        /// @tparam TRequirements Requirements requiring distinct assignment.
+        /// @tparam TProviders Providers participating in the Composition.
+        template<class... TRequirements, class... TProviders>
+        struct ContractClauseSatisfiedInComposition<
+            DistinctProviders<TRequirements...>,
+            TProviders...
+        > : std::bool_constant<
+            !RequirementsHaveScope<
+                RequirementList<TRequirements...>,
+                RequirementScope::SameDomain
+            >::value ||
+            DistinctAssignmentExists<
+                RequirementList<TRequirements...>,
+                ProviderList<TProviders...>
+            >::value
+        > {};
+
+
+        /// Evaluates one lifecycle target inside a Composition when it uses SameDomain scope.
+        ///
+        /// @tparam TRequirement Lifecycle target Requirement.
+        /// @tparam TProviders Providers participating in the Composition.
+        template<class TRequirement, class... TProviders>
+        struct ContractClauseSatisfiedInComposition<
+            InitializesAfter<TRequirement>,
+            TProviders...
+        > : std::bool_constant<
+            TRequirement::Scope != RequirementScope::SameDomain ||
+            SatisfyingProviderCountV<
+                TRequirement,
+                TProviders...
+            > == 1U
+        > {};
+
+
+        /// Evaluates one shutdown lifecycle target inside a Composition when it uses SameDomain scope.
+        ///
+        /// @tparam TRequirement Lifecycle target Requirement.
+        /// @tparam TProviders Providers participating in the Composition.
+        template<class TRequirement, class... TProviders>
+        struct ContractClauseSatisfiedInComposition<
+            ShutsDownBefore<TRequirement>,
+            TProviders...
+        > : std::bool_constant<
+            TRequirement::Scope != RequirementScope::SameDomain ||
+            SatisfyingProviderCountV<
+                TRequirement,
+                TProviders...
+            > == 1U
+        > {};
+
+
+        /// Evaluates every clause in one consolidated provider Contract against a Composition.
+        ///
+        /// @tparam TContract Consolidated Contract or void for a temporary legacy provider.
+        /// @tparam TProviders Providers participating in the Composition.
+        template<class TContract, class... TProviders>
+        struct ContractSatisfiedInComposition : std::true_type {};
+
+
+        /// Evaluates every clause in one concrete Contract.
+        ///
+        /// @tparam TClauses Contract clauses being evaluated.
+        /// @tparam TProviders Providers participating in the Composition.
+        template<class... TClauses, class... TProviders>
+        struct ContractSatisfiedInComposition<
+            Contract<TClauses...>,
+            TProviders...
+        > : std::bool_constant<
+            (ContractClauseSatisfiedInComposition<TClauses, TProviders...>::value && ...)
+        > {};
+
+
         /// Determines whether all offers in a Provides declaration obey exclusive-capability rules.
         template<class TProvides, class TDomain, class... TProviders>
         struct ProvidesIsConflictFree;
@@ -1285,6 +1616,16 @@ namespace ESPressio::System::CompositionFramework {
         static constexpr bool AllRequirementsSatisfied =
             (Detail::RequirementsSatisfied<typename TProviders::CompositionRequirements, TProviders...>::value && ...);
 
+        /// Indicates whether every consolidated same-domain Contract relationship is satisfied.
+        static constexpr bool AllContractRelationshipsSatisfied =
+            (
+                Detail::ContractSatisfiedInComposition<
+                    typename TProviders::CompositionContract,
+                    TProviders...
+                >::value &&
+                ...
+            );
+
         static_assert(
             NoCapabilityConflicts,
             "Composition contains multiple providers for an ExclusiveCapability"
@@ -1293,6 +1634,11 @@ namespace ESPressio::System::CompositionFramework {
         static_assert(
             AllRequirementsSatisfied,
             "Composition contains an unsatisfied same-domain provider requirement"
+        );
+
+        static_assert(
+            AllContractRelationshipsSatisfied,
+            "Composition contains an unsatisfied SameProvider, DistinctProviders or lifecycle Contract clause"
         );
 
         // Composition metadata.
@@ -1310,7 +1656,10 @@ namespace ESPressio::System::CompositionFramework {
         static constexpr std::size_t ProviderCount = sizeof...(TProviders);
 
         /// Indicates that compile-time composition validation completed successfully.
-        static constexpr bool IsValid = NoCapabilityConflicts && AllRequirementsSatisfied;
+        static constexpr bool IsValid =
+            NoCapabilityConflicts &&
+            AllRequirementsSatisfied &&
+            AllContractRelationshipsSatisfied;
 
         // Capability queries.
 
