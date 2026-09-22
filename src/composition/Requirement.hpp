@@ -388,6 +388,706 @@ namespace ESPressio::System::CompositionFramework {
     };
 
 
+    /// Requires a property value not to equal the supplied compile-time value.
+    ///
+    /// @tparam TProperty Property evaluated by this constraint.
+    /// @tparam TUnexpectedValue Value which must not be advertised.
+    template<class TProperty, auto TUnexpectedValue>
+    struct NotEquals {
+
+        static_assert(
+            IsPropertyV<TProperty>,
+            "NotEquals requires a concrete composition Property"
+        );
+
+        static_assert(
+            std::is_convertible_v<decltype(TUnexpectedValue), typename TProperty::ValueType>,
+            "NotEquals comparison value cannot be converted to the property's declared value type"
+        );
+
+        // Constraint metadata.
+
+        /// Marker identifying a Property constraint.
+        using ConstraintTag = void;
+
+        /// Property evaluated by this constraint.
+        using PropertyType = TProperty;
+
+        /// Capability owning the evaluated Property.
+        using CapabilityType = typename TProperty::CapabilityType;
+
+        /// Value which must not be advertised.
+        static constexpr typename TProperty::ValueType UnexpectedValue =
+            static_cast<typename TProperty::ValueType>(TUnexpectedValue);
+
+
+        // Constraint evaluation.
+
+        /// Indicates whether the supplied PropertySet advertises a different value.
+        ///
+        /// @tparam TPropertySet PropertySet being evaluated.
+        template<class TPropertySet>
+        static constexpr bool IsSatisfied() noexcept {
+            if constexpr (!TPropertySet::template Contains<TProperty>) {
+                return false;
+            } else {
+                return TPropertySet::template Value<TProperty> != UnexpectedValue;
+            }
+        }
+
+    };
+
+
+    /// Requires the supplied Property to be present.
+    ///
+    /// @tparam TProperty Property whose presence is required.
+    template<class TProperty>
+    struct HasProperty {
+
+        static_assert(
+            IsPropertyV<TProperty>,
+            "HasProperty requires a concrete composition Property"
+        );
+
+        // Constraint metadata.
+
+        /// Marker identifying a Property constraint.
+        using ConstraintTag = void;
+
+        /// Property evaluated by this constraint.
+        using PropertyType = TProperty;
+
+        /// Capability owning the evaluated Property.
+        using CapabilityType = typename TProperty::CapabilityType;
+
+
+        // Constraint evaluation.
+
+        /// Indicates whether the supplied PropertySet contains the requested Property.
+        ///
+        /// @tparam TPropertySet PropertySet being evaluated.
+        template<class TPropertySet>
+        static constexpr bool IsSatisfied() noexcept {
+            return TPropertySet::template Contains<TProperty>;
+        }
+
+    };
+
+
+    /// Requires the supplied Property to be absent.
+    ///
+    /// @tparam TProperty Property whose absence is required.
+    template<class TProperty>
+    struct DoesNotHaveProperty {
+
+        static_assert(
+            IsPropertyV<TProperty>,
+            "DoesNotHaveProperty requires a concrete composition Property"
+        );
+
+        // Constraint metadata.
+
+        /// Marker identifying a Property constraint.
+        using ConstraintTag = void;
+
+        /// Property evaluated by this constraint.
+        using PropertyType = TProperty;
+
+        /// Capability owning the evaluated Property.
+        using CapabilityType = typename TProperty::CapabilityType;
+
+
+        // Constraint evaluation.
+
+        /// Indicates whether the supplied PropertySet omits the requested Property.
+        ///
+        /// @tparam TPropertySet PropertySet being evaluated.
+        template<class TPropertySet>
+        static constexpr bool IsSatisfied() noexcept {
+            return !TPropertySet::template Contains<TProperty>;
+        }
+
+    };
+
+
+    /// Requires a Property value to fall inside an inclusive compile-time range.
+    ///
+    /// @tparam TProperty Property evaluated by this constraint.
+    /// @tparam TMinimum Inclusive lower bound.
+    /// @tparam TMaximum Inclusive upper bound.
+    template<class TProperty, auto TMinimum, auto TMaximum>
+    struct Between {
+
+        static_assert(
+            IsPropertyV<TProperty>,
+            "Between requires a concrete composition Property"
+        );
+
+        static_assert(
+            std::is_convertible_v<decltype(TMinimum), typename TProperty::ValueType> &&
+            std::is_convertible_v<decltype(TMaximum), typename TProperty::ValueType>,
+            "Between bounds must be convertible to the property's declared value type"
+        );
+
+        // Constraint metadata.
+
+        /// Marker identifying a Property constraint.
+        using ConstraintTag = void;
+
+        /// Property evaluated by this constraint.
+        using PropertyType = TProperty;
+
+        /// Capability owning the evaluated Property.
+        using CapabilityType = typename TProperty::CapabilityType;
+
+        /// Inclusive lower bound.
+        static constexpr typename TProperty::ValueType Minimum =
+            static_cast<typename TProperty::ValueType>(TMinimum);
+
+        /// Inclusive upper bound.
+        static constexpr typename TProperty::ValueType Maximum =
+            static_cast<typename TProperty::ValueType>(TMaximum);
+
+        static_assert(
+            Minimum <= Maximum,
+            "Between minimum must not exceed maximum"
+        );
+
+
+        // Constraint evaluation.
+
+        /// Indicates whether the advertised Property value is inside the inclusive range.
+        ///
+        /// @tparam TPropertySet PropertySet being evaluated.
+        template<class TPropertySet>
+        static constexpr bool IsSatisfied() noexcept {
+            if constexpr (!TPropertySet::template Contains<TProperty>) {
+                return false;
+            } else {
+                constexpr auto value = TPropertySet::template Value<TProperty>;
+
+                return value >= Minimum && value <= Maximum;
+            }
+        }
+
+    };
+
+
+    /// Requires a Property value to equal one of the supplied compile-time values.
+    ///
+    /// @tparam TProperty Property evaluated by this constraint.
+    /// @tparam TAllowedValues One or more accepted values.
+    template<class TProperty, auto... TAllowedValues>
+    struct OneOf {
+
+        static_assert(
+            IsPropertyV<TProperty>,
+            "OneOf requires a concrete composition Property"
+        );
+
+        static_assert(
+            sizeof...(TAllowedValues) > 0U,
+            "OneOf requires at least one accepted value"
+        );
+
+        static_assert(
+            (std::is_convertible_v<decltype(TAllowedValues), typename TProperty::ValueType> && ...),
+            "OneOf values must be convertible to the property's declared value type"
+        );
+
+        // Constraint metadata.
+
+        /// Marker identifying a Property constraint.
+        using ConstraintTag = void;
+
+        /// Property evaluated by this constraint.
+        using PropertyType = TProperty;
+
+        /// Capability owning the evaluated Property.
+        using CapabilityType = typename TProperty::CapabilityType;
+
+
+        // Constraint evaluation.
+
+        /// Indicates whether the advertised Property value equals at least one accepted value.
+        ///
+        /// @tparam TPropertySet PropertySet being evaluated.
+        template<class TPropertySet>
+        static constexpr bool IsSatisfied() noexcept {
+            if constexpr (!TPropertySet::template Contains<TProperty>) {
+                return false;
+            } else {
+                constexpr auto value = TPropertySet::template Value<TProperty>;
+
+                return (
+                    (
+                        value ==
+                        static_cast<typename TProperty::ValueType>(TAllowedValues)
+                    ) ||
+                    ...
+                );
+            }
+        }
+
+    };
+
+
+    /// Requires a Property value to equal none of the supplied compile-time values.
+    ///
+    /// @tparam TProperty Property evaluated by this constraint.
+    /// @tparam TExcludedValues One or more prohibited values.
+    template<class TProperty, auto... TExcludedValues>
+    struct NoneOf {
+
+        static_assert(
+            IsPropertyV<TProperty>,
+            "NoneOf requires a concrete composition Property"
+        );
+
+        static_assert(
+            sizeof...(TExcludedValues) > 0U,
+            "NoneOf requires at least one excluded value"
+        );
+
+        static_assert(
+            (std::is_convertible_v<decltype(TExcludedValues), typename TProperty::ValueType> && ...),
+            "NoneOf values must be convertible to the property's declared value type"
+        );
+
+        // Constraint metadata.
+
+        /// Marker identifying a Property constraint.
+        using ConstraintTag = void;
+
+        /// Property evaluated by this constraint.
+        using PropertyType = TProperty;
+
+        /// Capability owning the evaluated Property.
+        using CapabilityType = typename TProperty::CapabilityType;
+
+
+        // Constraint evaluation.
+
+        /// Indicates whether the advertised Property value differs from every excluded value.
+        ///
+        /// @tparam TPropertySet PropertySet being evaluated.
+        template<class TPropertySet>
+        static constexpr bool IsSatisfied() noexcept {
+            if constexpr (!TPropertySet::template Contains<TProperty>) {
+                return false;
+            } else {
+                constexpr auto value = TPropertySet::template Value<TProperty>;
+
+                return (
+                    (
+                        value !=
+                        static_cast<typename TProperty::ValueType>(TExcludedValues)
+                    ) &&
+                    ...
+                );
+            }
+        }
+
+    };
+
+
+    /// Requires one open-ended Attribute to be present regardless of its value.
+    ///
+    /// @tparam TName Attribute name whose presence is required.
+    template<FixedString TName>
+    struct HasAttribute {
+
+        // Attribute-constraint metadata.
+
+        /// Marker identifying an Attribute constraint.
+        using AttributeConstraintTag = void;
+
+
+        // Constraint evaluation.
+
+        /// Indicates whether the supplied AttributeSet contains the requested name.
+        ///
+        /// @tparam TAttributeSet AttributeSet being evaluated.
+        template<class TAttributeSet>
+        static constexpr bool IsSatisfied() noexcept {
+            return TAttributeSet::template Contains<TName>;
+        }
+
+    };
+
+
+    /// Requires one open-ended Attribute to be absent.
+    ///
+    /// @tparam TName Attribute name whose absence is required.
+    template<FixedString TName>
+    struct DoesNotHaveAttribute {
+
+        // Attribute-constraint metadata.
+
+        /// Marker identifying an Attribute constraint.
+        using AttributeConstraintTag = void;
+
+
+        // Constraint evaluation.
+
+        /// Indicates whether the supplied AttributeSet omits the requested name.
+        ///
+        /// @tparam TAttributeSet AttributeSet being evaluated.
+        template<class TAttributeSet>
+        static constexpr bool IsSatisfied() noexcept {
+            return !TAttributeSet::template Contains<TName>;
+        }
+
+    };
+
+
+    /// Requires one open-ended Attribute not to equal the supplied compile-time value.
+    ///
+    /// Missing Attributes do not satisfy this constraint.
+    ///
+    /// @tparam TName Attribute name being evaluated.
+    /// @tparam TUnexpectedValue Value which must not be advertised.
+    template<FixedString TName, auto TUnexpectedValue>
+    struct AttributeNotEquals {
+
+        // Attribute-constraint metadata.
+
+        /// Marker identifying an Attribute constraint.
+        using AttributeConstraintTag = void;
+
+
+        // Constraint evaluation.
+
+        /// Indicates whether the Attribute is present and differs from the prohibited value.
+        ///
+        /// @tparam TAttributeSet AttributeSet being evaluated.
+        template<class TAttributeSet>
+        static constexpr bool IsSatisfied() noexcept {
+            if constexpr (!TAttributeSet::template Contains<TName>) {
+                return false;
+            } else {
+                using AttributeType = typename TAttributeSet::template Resolve<TName>::Type;
+                constexpr auto actualValue = Detail::AttributeTraits<AttributeType>::Value;
+
+                if constexpr (requires { actualValue != TUnexpectedValue; }) {
+                    return actualValue != TUnexpectedValue;
+                }
+
+                return false;
+            }
+        }
+
+    };
+
+
+    /// Requires one open-ended Attribute to equal at least one supplied compile-time value.
+    ///
+    /// @tparam TName Attribute name being evaluated.
+    /// @tparam TAllowedValues One or more accepted values.
+    template<FixedString TName, auto... TAllowedValues>
+    struct AttributeOneOf {
+
+        static_assert(
+            sizeof...(TAllowedValues) > 0U,
+            "AttributeOneOf requires at least one accepted value"
+        );
+
+        // Attribute-constraint metadata.
+
+        /// Marker identifying an Attribute constraint.
+        using AttributeConstraintTag = void;
+
+
+        // Constraint evaluation.
+
+        /// Indicates whether the Attribute equals at least one accepted value.
+        ///
+        /// @tparam TAttributeSet AttributeSet being evaluated.
+        template<class TAttributeSet>
+        static constexpr bool IsSatisfied() noexcept {
+            if constexpr (!TAttributeSet::template Contains<TName>) {
+                return false;
+            } else {
+                using AttributeType = typename TAttributeSet::template Resolve<TName>::Type;
+                constexpr auto actualValue = Detail::AttributeTraits<AttributeType>::Value;
+
+                return (
+                    (
+                        requires { actualValue == TAllowedValues; } &&
+                        actualValue == TAllowedValues
+                    ) ||
+                    ...
+                );
+            }
+        }
+
+    };
+
+
+    /// Requires one open-ended Attribute to equal none of the supplied compile-time values.
+    ///
+    /// @tparam TName Attribute name being evaluated.
+    /// @tparam TExcludedValues One or more prohibited values.
+    template<FixedString TName, auto... TExcludedValues>
+    struct AttributeNoneOf {
+
+        static_assert(
+            sizeof...(TExcludedValues) > 0U,
+            "AttributeNoneOf requires at least one excluded value"
+        );
+
+        // Attribute-constraint metadata.
+
+        /// Marker identifying an Attribute constraint.
+        using AttributeConstraintTag = void;
+
+
+        // Constraint evaluation.
+
+        /// Indicates whether the Attribute differs from every prohibited value.
+        ///
+        /// @tparam TAttributeSet AttributeSet being evaluated.
+        template<class TAttributeSet>
+        static constexpr bool IsSatisfied() noexcept {
+            if constexpr (!TAttributeSet::template Contains<TName>) {
+                return false;
+            } else {
+                using AttributeType = typename TAttributeSet::template Resolve<TName>::Type;
+                constexpr auto actualValue = Detail::AttributeTraits<AttributeType>::Value;
+
+                return (
+                    (
+                        requires { actualValue != TExcludedValues; } &&
+                        actualValue != TExcludedValues
+                    ) &&
+                    ...
+                );
+            }
+        }
+
+    };
+
+
+    namespace Detail {
+
+        /// Default logical-constraint metadata for unrelated Types.
+        ///
+        /// @tparam TConstraint Type being inspected.
+        /// @tparam TEnable SFINAE helper used when logical-constraint metadata is present.
+        template<class TConstraint, class TEnable = void>
+        struct LogicalConstraintTraits {
+
+            // Constraint metadata.
+
+            /// Indicates whether the inspected Type is a logical constraint expression.
+            static constexpr bool IsValid = false;
+
+        };
+
+
+        /// Extracts logical-constraint metadata.
+        ///
+        /// @tparam TConstraint Logical constraint Type being inspected.
+        template<class TConstraint>
+        struct LogicalConstraintTraits<
+            TConstraint,
+            std::void_t<typename TConstraint::LogicalConstraintTag>
+        > {
+
+            // Constraint metadata.
+
+            /// Indicates whether the inspected Type is a logical constraint expression.
+            static constexpr bool IsValid = true;
+
+        };
+
+
+        /// Indicates whether a Requirement constraint can be applied to the supplied Capability.
+        ///
+        /// @tparam TCapability Capability being qualified.
+        /// @tparam TConstraint Constraint expression being inspected.
+        template<class TCapability, class TConstraint>
+        consteval bool RequirementConstraintAppliesToCapability() noexcept {
+            if constexpr (IsConstraintV<TConstraint>) {
+                return IsConstraintForV<TCapability, TConstraint>;
+            } else if constexpr (IsAttributeConstraintV<TConstraint>) {
+                return true;
+            } else if constexpr (LogicalConstraintTraits<TConstraint>::IsValid) {
+                return TConstraint::template AppliesTo<TCapability>();
+            } else {
+                return false;
+            }
+        }
+
+
+        /// Evaluates one Requirement constraint against one complete capability Offer.
+        ///
+        /// @tparam TConstraint Constraint expression being evaluated.
+        /// @tparam TOffer Capability Offer being inspected.
+        template<class TConstraint, class TOffer>
+        consteval bool RequirementConstraintSatisfiedByOffer() noexcept {
+            if constexpr (IsConstraintV<TConstraint>) {
+                return TConstraint::template IsSatisfied<typename TOffer::Properties>();
+            } else if constexpr (IsAttributeConstraintV<TConstraint>) {
+                return TConstraint::template IsSatisfied<typename TOffer::Attributes>();
+            } else if constexpr (LogicalConstraintTraits<TConstraint>::IsValid) {
+                return TConstraint::template IsSatisfied<TOffer>();
+            } else {
+                return false;
+            }
+        }
+
+    } // ESPressio::System::CompositionFramework::Detail
+
+
+    /// Requires every nested constraint expression to be satisfied.
+    ///
+    /// @tparam TConstraints Nested Requirement constraints.
+    template<class... TConstraints>
+    struct AllOf {
+
+        static_assert(
+            sizeof...(TConstraints) > 0U,
+            "AllOf requires at least one nested constraint"
+        );
+
+        // Logical-constraint metadata.
+
+        /// Marker identifying a logical Requirement constraint.
+        using LogicalConstraintTag = void;
+
+
+        // Capability validation.
+
+        /// Indicates whether every nested constraint can be applied to the supplied Capability.
+        ///
+        /// @tparam TCapability Capability being qualified.
+        template<class TCapability>
+        static consteval bool AppliesTo() noexcept {
+            return (
+                Detail::RequirementConstraintAppliesToCapability<
+                    TCapability,
+                    TConstraints
+                >() &&
+                ...
+            );
+        }
+
+
+        // Constraint evaluation.
+
+        /// Indicates whether every nested constraint is satisfied by one Offer.
+        ///
+        /// @tparam TOffer Offer being evaluated.
+        template<class TOffer>
+        static consteval bool IsSatisfied() noexcept {
+            return (
+                Detail::RequirementConstraintSatisfiedByOffer<
+                    TConstraints,
+                    TOffer
+                >() &&
+                ...
+            );
+        }
+
+    };
+
+
+    /// Requires at least one nested constraint expression to be satisfied.
+    ///
+    /// @tparam TConstraints Nested Requirement constraints.
+    template<class... TConstraints>
+    struct AnyOf {
+
+        static_assert(
+            sizeof...(TConstraints) > 0U,
+            "AnyOf requires at least one nested constraint"
+        );
+
+        // Logical-constraint metadata.
+
+        /// Marker identifying a logical Requirement constraint.
+        using LogicalConstraintTag = void;
+
+
+        // Capability validation.
+
+        /// Indicates whether every nested expression is meaningful for the supplied Capability.
+        ///
+        /// @tparam TCapability Capability being qualified.
+        template<class TCapability>
+        static consteval bool AppliesTo() noexcept {
+            return (
+                Detail::RequirementConstraintAppliesToCapability<
+                    TCapability,
+                    TConstraints
+                >() &&
+                ...
+            );
+        }
+
+
+        // Constraint evaluation.
+
+        /// Indicates whether at least one nested constraint is satisfied by one Offer.
+        ///
+        /// @tparam TOffer Offer being evaluated.
+        template<class TOffer>
+        static consteval bool IsSatisfied() noexcept {
+            return (
+                Detail::RequirementConstraintSatisfiedByOffer<
+                    TConstraints,
+                    TOffer
+                >() ||
+                ...
+            );
+        }
+
+    };
+
+
+    /// Negates one nested Requirement constraint.
+    ///
+    /// @tparam TConstraint Nested Requirement constraint.
+    template<class TConstraint>
+    struct Not {
+
+        // Logical-constraint metadata.
+
+        /// Marker identifying a logical Requirement constraint.
+        using LogicalConstraintTag = void;
+
+
+        // Capability validation.
+
+        /// Indicates whether the nested constraint can be applied to the supplied Capability.
+        ///
+        /// @tparam TCapability Capability being qualified.
+        template<class TCapability>
+        static consteval bool AppliesTo() noexcept {
+            return Detail::RequirementConstraintAppliesToCapability<
+                TCapability,
+                TConstraint
+            >();
+        }
+
+
+        // Constraint evaluation.
+
+        /// Indicates whether the nested constraint is not satisfied by one Offer.
+        ///
+        /// @tparam TOffer Offer being evaluated.
+        template<class TOffer>
+        static consteval bool IsSatisfied() noexcept {
+            return !Detail::RequirementConstraintSatisfiedByOffer<
+                TConstraint,
+                TOffer
+            >();
+        }
+
+    };
+
+
     /// Declares one capability required by a provider, optionally constrained by properties and open-ended Attributes.
     template<class TCapability, class... TConstraints>
     struct Need {
@@ -398,7 +1098,7 @@ namespace ESPressio::System::CompositionFramework {
         );
 
         static_assert(
-            ((IsConstraintForV<TCapability, TConstraints> || IsAttributeConstraintV<TConstraints>) && ...),
+            (Detail::RequirementConstraintAppliesToCapability<TCapability, TConstraints>() && ...),
             "Need contains a constraint that cannot be applied to the requested capability"
         );
 
@@ -424,7 +1124,13 @@ namespace ESPressio::System::CompositionFramework {
 
         /// Indicates whether one complete capability Offer satisfies every constraint attached to this requirement.
         template<class TOffer>
-        static constexpr bool OfferSatisfied = (Detail::ConstraintSatisfiedByOffer<TConstraints, TOffer>::value && ...);
+        static constexpr bool OfferSatisfied = (
+            Detail::RequirementConstraintSatisfiedByOffer<
+                TConstraints,
+                TOffer
+            >() &&
+            ...
+        );
 
     };
 
