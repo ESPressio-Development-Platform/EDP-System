@@ -541,6 +541,53 @@ namespace ESPressio::System::CompositionFramework {
         > {};
 
 
+        /// Indicates whether every Requirement in one RequirementList uses the same scope and Capability Domain.
+        ///
+        /// @tparam TRequirementList Requirement list being inspected.
+        template<class TRequirementList>
+        struct RequirementsShareScopeAndDomain;
+
+
+        /// An empty Requirement list vacuously shares scope and Domain.
+        template<>
+        struct RequirementsShareScopeAndDomain<
+            RequirementList<>
+        > : std::true_type {};
+
+
+        /// A single Requirement trivially shares scope and Domain with itself.
+        ///
+        /// @tparam TRequirement Only Requirement in the list.
+        template<class TRequirement>
+        struct RequirementsShareScopeAndDomain<
+            RequirementList<TRequirement>
+        > : std::true_type {};
+
+
+        /// Compares every remaining Requirement with the first Requirement.
+        ///
+        /// @tparam TFirstRequirement First Requirement controlling the expected scope and Domain.
+        /// @tparam TRestRequirements Remaining Requirements.
+        template<class TFirstRequirement, class... TRestRequirements>
+        struct RequirementsShareScopeAndDomain<
+            RequirementList<
+                TFirstRequirement,
+                TRestRequirements...
+            >
+        > : std::bool_constant<
+            (
+                (
+                    TRestRequirements::Scope == TFirstRequirement::Scope &&
+                    std::is_same_v<
+                        typename TRestRequirements::CompositionDomain,
+                        typename TFirstRequirement::CompositionDomain
+                    >
+                ) &&
+                ...
+            )
+        > {};
+
+
         /// Validates nested SameProvider requirements against an owning provider Domain.
         ///
         /// @tparam TDomain Domain owning the provider Contract.
@@ -550,6 +597,9 @@ namespace ESPressio::System::CompositionFramework {
             TDomain,
             SameProvider<TRequirements...>
         > : std::bool_constant<
+            RequirementsShareScopeAndDomain<
+                RequirementList<TRequirements...>
+            >::value &&
             (ProviderRequirementIsValidV<TDomain, TRequirements> && ...)
         > {};
 
