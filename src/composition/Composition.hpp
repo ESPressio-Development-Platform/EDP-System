@@ -170,6 +170,285 @@ namespace ESPressio::System::CompositionFramework {
 
     namespace Detail {
 
+        /// Prepends one provider Type to a ProviderList.
+        ///
+        /// @tparam TProvider Provider Type to prepend.
+        /// @tparam TProviderList Existing provider list.
+        template<class TProvider, class TProviderList>
+        struct PrependProviderList;
+
+
+        /// Prepends one provider Type while preserving the existing list order.
+        ///
+        /// @tparam TProvider Provider Type to prepend.
+        /// @tparam TProviders Existing provider Types.
+        template<class TProvider, class... TProviders>
+        struct PrependProviderList<
+            TProvider,
+            ProviderList<TProviders...>
+        > {
+
+            /// Resulting provider list.
+            using Type = ProviderList<
+                TProvider,
+                TProviders...
+            >;
+
+        };
+
+
+        /// Appends one provider Type to a ProviderList.
+        ///
+        /// @tparam TProviderList Existing provider list.
+        /// @tparam TProvider Provider Type to append.
+        template<class TProviderList, class TProvider>
+        struct AppendProviderList;
+
+
+        /// Appends one provider Type while preserving the existing list order.
+        ///
+        /// @tparam TProviders Existing provider Types.
+        /// @tparam TProvider Provider Type to append.
+        template<class... TProviders, class TProvider>
+        struct AppendProviderList<
+            ProviderList<TProviders...>,
+            TProvider
+        > {
+
+            /// Resulting provider list.
+            using Type = ProviderList<
+                TProviders...,
+                TProvider
+            >;
+
+        };
+
+
+        /// Concatenates two ProviderLists without changing either list's declaration order.
+        ///
+        /// @tparam TLeftProviders Left provider list.
+        /// @tparam TRightProviders Right provider list.
+        template<class TLeftProviders, class TRightProviders>
+        struct ConcatProviderLists;
+
+
+        /// Concatenates two concrete provider packs.
+        ///
+        /// @tparam TLeftProviders Provider Types from the left list.
+        /// @tparam TRightProviders Provider Types from the right list.
+        template<class... TLeftProviders, class... TRightProviders>
+        struct ConcatProviderLists<
+            ProviderList<TLeftProviders...>,
+            ProviderList<TRightProviders...>
+        > {
+
+            /// Concatenated provider list.
+            using Type = ProviderList<
+                TLeftProviders...,
+                TRightProviders...
+            >;
+
+        };
+
+
+        /// Removes every occurrence of one provider Type from a ProviderList.
+        ///
+        /// @tparam TProvider Provider Type to remove.
+        /// @tparam TProviderList Provider list being filtered.
+        template<class TProvider, class TProviderList>
+        struct RemoveProviderFromList;
+
+
+        /// Completes removal from an empty ProviderList.
+        ///
+        /// @tparam TProvider Provider Type being removed.
+        template<class TProvider>
+        struct RemoveProviderFromList<
+            TProvider,
+            ProviderList<>
+        > {
+
+            /// Empty removal result.
+            using Type = ProviderList<>;
+
+        };
+
+
+        /// Removes one provider Type recursively while preserving all remaining order.
+        ///
+        /// @tparam TProvider Provider Type being removed.
+        /// @tparam TFirstProvider Current provider Type.
+        /// @tparam TRestProviders Remaining provider Types.
+        template<
+            class TProvider,
+            class TFirstProvider,
+            class... TRestProviders
+        >
+        struct RemoveProviderFromList<
+            TProvider,
+            ProviderList<
+                TFirstProvider,
+                TRestProviders...
+            >
+        > {
+
+            private:
+
+                /// Removal result for the remaining provider Types.
+                using Remaining = typename RemoveProviderFromList<
+                    TProvider,
+                    ProviderList<TRestProviders...>
+                >::Type;
+
+
+            public:
+
+                /// Removal result preserving declaration order.
+                using Type = std::conditional_t<
+                    std::is_same_v<
+                        TProvider,
+                        TFirstProvider
+                    >,
+                    Remaining,
+                    typename PrependProviderList<
+                        TFirstProvider,
+                        Remaining
+                    >::Type
+                >;
+
+        };
+
+
+        /// Computes the declaration-order-preserving intersection of two ProviderLists.
+        ///
+        /// @tparam TLeftProviders Left provider list controlling result order.
+        /// @tparam TRightProviders Right provider list used for membership checks.
+        template<class TLeftProviders, class TRightProviders>
+        struct IntersectProviderLists;
+
+
+        /// Completes intersection when the left list is empty.
+        ///
+        /// @tparam TRightProviders Right provider list.
+        template<class TRightProviders>
+        struct IntersectProviderLists<
+            ProviderList<>,
+            TRightProviders
+        > {
+
+            /// Empty intersection result.
+            using Type = ProviderList<>;
+
+        };
+
+
+        /// Computes one ordered intersection step.
+        ///
+        /// @tparam TFirstProvider Current left provider Type.
+        /// @tparam TRestProviders Remaining left provider Types.
+        /// @tparam TRightProviders Right provider list.
+        template<
+            class TFirstProvider,
+            class... TRestProviders,
+            class TRightProviders
+        >
+        struct IntersectProviderLists<
+            ProviderList<
+                TFirstProvider,
+                TRestProviders...
+            >,
+            TRightProviders
+        > {
+
+            private:
+
+                /// Intersection result for the remaining left provider Types.
+                using Remaining = typename IntersectProviderLists<
+                    ProviderList<TRestProviders...>,
+                    TRightProviders
+                >::Type;
+
+
+            public:
+
+                /// Ordered intersection result.
+                using Type = std::conditional_t<
+                    TRightProviders::template Contains<TFirstProvider>,
+                    typename PrependProviderList<
+                        TFirstProvider,
+                        Remaining
+                    >::Type,
+                    Remaining
+                >;
+
+        };
+
+
+        /// Computes the declaration-order-preserving difference of two ProviderLists.
+        ///
+        /// @tparam TLeftProviders Left provider list controlling result order.
+        /// @tparam TRightProviders Provider Types excluded from the result.
+        template<class TLeftProviders, class TRightProviders>
+        struct DifferenceProviderLists;
+
+
+        /// Completes difference when the left list is empty.
+        ///
+        /// @tparam TRightProviders Right provider list.
+        template<class TRightProviders>
+        struct DifferenceProviderLists<
+            ProviderList<>,
+            TRightProviders
+        > {
+
+            /// Empty difference result.
+            using Type = ProviderList<>;
+
+        };
+
+
+        /// Computes one ordered difference step.
+        ///
+        /// @tparam TFirstProvider Current left provider Type.
+        /// @tparam TRestProviders Remaining left provider Types.
+        /// @tparam TRightProviders Provider Types excluded from the result.
+        template<
+            class TFirstProvider,
+            class... TRestProviders,
+            class TRightProviders
+        >
+        struct DifferenceProviderLists<
+            ProviderList<
+                TFirstProvider,
+                TRestProviders...
+            >,
+            TRightProviders
+        > {
+
+            private:
+
+                /// Difference result for the remaining left provider Types.
+                using Remaining = typename DifferenceProviderLists<
+                    ProviderList<TRestProviders...>,
+                    TRightProviders
+                >::Type;
+
+
+            public:
+
+                /// Ordered difference result.
+                using Type = std::conditional_t<
+                    TRightProviders::template Contains<TFirstProvider>,
+                    Remaining,
+                    typename PrependProviderList<
+                        TFirstProvider,
+                        Remaining
+                    >::Type
+                >;
+
+        };
+
+
         /// Indicates whether a type pack contains the specified type.
         template<class TNeedle, class... THaystack>
         inline constexpr bool ContainsTypeV = (std::is_same_v<TNeedle, THaystack> || ...);
@@ -395,6 +674,37 @@ namespace ESPressio::System::CompositionFramework {
         > {};
 
     } // ESPressio::System::CompositionFramework::Detail
+
+
+    /// Concatenates two ProviderLists while preserving each list's declaration order.
+    ///
+    /// @tparam TLeftProviders Left ProviderList.
+    /// @tparam TRightProviders Right ProviderList.
+    template<class TLeftProviders, class TRightProviders>
+    using ProviderListConcat = typename Detail::ConcatProviderLists<
+        TLeftProviders,
+        TRightProviders
+    >::Type;
+
+    /// Returns the ordered intersection of two ProviderLists.
+    ///
+    /// @tparam TLeftProviders Left ProviderList controlling output order.
+    /// @tparam TRightProviders Right ProviderList used for membership.
+    template<class TLeftProviders, class TRightProviders>
+    using ProviderListIntersection = typename Detail::IntersectProviderLists<
+        TLeftProviders,
+        TRightProviders
+    >::Type;
+
+    /// Returns provider Types present in the left ProviderList but absent from the right.
+    ///
+    /// @tparam TLeftProviders Left ProviderList controlling output order.
+    /// @tparam TRightProviders Provider Types excluded from the result.
+    template<class TLeftProviders, class TRightProviders>
+    using ProviderListDifference = typename Detail::DifferenceProviderLists<
+        TLeftProviders,
+        TRightProviders
+    >::Type;
 
 
     /// Validates and exposes the compile-time architecture formed by a set of providers within one domain.
