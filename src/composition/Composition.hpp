@@ -37,6 +37,67 @@ namespace ESPressio::System::CompositionFramework {
         };
 
 
+        /// Resolves one provider Type's zero-based index in a compile-time provider pack.
+        ///
+        /// @tparam TNeedle Provider Type whose index is requested.
+        /// @tparam TProviders Provider Types being searched.
+        template<class TNeedle, class... TProviders>
+        struct ProviderTypeIndex;
+
+
+        /// Reports a missing provider Type.
+        ///
+        /// @tparam TNeedle Provider Type being searched.
+        template<class TNeedle>
+        struct ProviderTypeIndex<TNeedle> {
+
+            /// Missing-provider sentinel index.
+            static constexpr std::size_t Value =
+                static_cast<std::size_t>(-1);
+
+        };
+
+
+        /// Resolves one provider Type recursively.
+        ///
+        /// @tparam TNeedle Provider Type being searched.
+        /// @tparam TFirstProvider Current provider Type.
+        /// @tparam TRestProviders Remaining provider Types.
+        template<class TNeedle, class TFirstProvider, class... TRestProviders>
+        struct ProviderTypeIndex<
+            TNeedle,
+            TFirstProvider,
+            TRestProviders...
+        > {
+
+            private:
+
+                /// Index reported by the remaining provider pack.
+                static constexpr std::size_t RemainingIndex =
+                    ProviderTypeIndex<
+                        TNeedle,
+                        TRestProviders...
+                    >::Value;
+
+
+            public:
+
+                /// Zero-based provider index, or the missing-provider sentinel.
+                static constexpr std::size_t Value =
+                    std::is_same_v<
+                        TNeedle,
+                        TFirstProvider
+                    >
+                        ? 0U
+                        : (
+                            RemainingIndex == static_cast<std::size_t>(-1)
+                                ? static_cast<std::size_t>(-1)
+                                : RemainingIndex + 1U
+                        );
+
+        };
+
+
         /// Resolves the last Type in one compile-time provider pack.
         ///
         /// @tparam TProviders Provider Types represented by the pack.
@@ -99,6 +160,22 @@ namespace ESPressio::System::CompositionFramework {
         /// @tparam TProvider Provider Type being queried.
         template<class TProvider>
         static constexpr bool Contains = (std::is_same_v<TProvider, TProviders> || ...);
+
+        /// Returns the zero-based index of one provider Type, or Count when it is absent.
+        ///
+        /// @tparam TProvider Provider Type whose index is requested.
+        template<class TProvider>
+        static constexpr std::size_t IndexOf = []() constexpr {
+            constexpr auto index = Detail::ProviderTypeIndex<
+                TProvider,
+                TProviders...
+            >::Value;
+
+            return index == static_cast<std::size_t>(-1)
+                ? Count
+                : index;
+        }();
+
 
         /// Indicates whether every supplied provider Type is contained in this list.
         ///
