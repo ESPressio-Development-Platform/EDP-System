@@ -250,7 +250,8 @@ namespace ESPressio::System::Tests::CompositionContracts {
                 LocalWifiRadio,
                 LocalBleRadio
             >,
-            Framework::InitializesAfter<LocalClock>
+            Framework::InitializesAfter<LocalClock>,
+            Framework::ShutsDownBefore<LocalClock>
         >
     > {};
 
@@ -395,6 +396,21 @@ namespace ESPressio::System::Tests::CompositionContracts {
     static_assert(
         TestArchitecture::ValidateContract<ConsumerContract>::IsValid,
         "Strict consumer Contract validation must succeed"
+    );
+
+
+    // Lifecycle ordering.
+
+    static_assert(
+        TestArchitecture::InitializationOrder::template IndexOf<ClockProvider> <
+        TestArchitecture::InitializationOrder::template IndexOf<CoordinatorProvider>,
+        "InitializesAfter must place the selected predecessor before the owning provider"
+    );
+
+    static_assert(
+        TestArchitecture::ShutdownOrder::template IndexOf<CoordinatorProvider> <
+        TestArchitecture::ShutdownOrder::template IndexOf<ClockProvider>,
+        "ShutsDownBefore must place the owning provider before the selected successor"
     );
 
 
