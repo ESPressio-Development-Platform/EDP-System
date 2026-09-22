@@ -95,10 +95,28 @@ namespace ESPressio::System::CompositionFramework {
         struct DependenciesSatisfied;
 
 
-        /// Evaluates every cross-domain Need contained in one DependsOn declaration.
-        template<class... TNeeds, class... TCompositions>
-        struct DependenciesSatisfied<DependsOn<TNeeds...>, TCompositions...> : std::bool_constant<
-            ((ArchitectureSatisfyingProviderCountV<TNeeds, TCompositions...> > 0U) && ...)
+        /// Evaluates every cross-domain Requirement contained in one DependsOn declaration.
+        ///
+        /// Consolidated Requirement cardinality is enforced while temporary legacy Needs retain
+        /// their historical at-least-one-provider semantics during downstream migration.
+        ///
+        /// @tparam TRequirements Cross-domain Requirements being evaluated.
+        /// @tparam TCompositions Domain Compositions participating in the Architecture.
+        template<class... TRequirements, class... TCompositions>
+        struct DependenciesSatisfied<
+            DependsOn<TRequirements...>,
+            TCompositions...
+        > : std::bool_constant<
+            (
+                RequirementCardinalitySatisfied<
+                    TRequirements,
+                    ArchitectureSatisfyingProviderCountV<
+                        TRequirements,
+                        TCompositions...
+                    >
+                >::value &&
+                ...
+            )
         > {};
 
 
