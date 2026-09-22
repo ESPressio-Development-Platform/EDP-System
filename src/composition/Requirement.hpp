@@ -741,6 +741,35 @@ namespace ESPressio::System::CompositionFramework {
     };
 
 
+    namespace Detail {
+
+        /// Forward declaration for safe compile-time Attribute equality comparison.
+        template<auto TLeftValue, auto TRightValue>
+        consteval bool AttributeValuesEqual() noexcept;
+
+        /// Forward declaration for safe compile-time Attribute inequality comparison.
+        template<auto TLeftValue, auto TRightValue>
+        consteval bool AttributeValuesNotEqual() noexcept;
+
+        /// Forward declaration for safe compile-time Attribute greater-than-or-equal comparison.
+        template<auto TLeftValue, auto TRightValue>
+        consteval bool AttributeValueAtLeast() noexcept;
+
+        /// Forward declaration for safe compile-time Attribute less-than-or-equal comparison.
+        template<auto TLeftValue, auto TRightValue>
+        consteval bool AttributeValueAtMost() noexcept;
+
+        /// Forward declaration for safe compile-time Attribute strict greater-than comparison.
+        template<auto TLeftValue, auto TRightValue>
+        consteval bool AttributeValueGreaterThan() noexcept;
+
+        /// Forward declaration for safe compile-time Attribute strict less-than comparison.
+        template<auto TLeftValue, auto TRightValue>
+        consteval bool AttributeValueLessThan() noexcept;
+
+    } // ESPressio::System::CompositionFramework::Detail
+
+
     /// Requires one open-ended Attribute not to equal the supplied compile-time value.
     ///
     /// Missing Attributes do not satisfy this constraint.
@@ -865,35 +894,6 @@ namespace ESPressio::System::CompositionFramework {
         }
 
     };
-
-
-    namespace Detail {
-
-        /// Forward declaration for safe compile-time Attribute equality comparison.
-        template<auto TLeftValue, auto TRightValue>
-        consteval bool AttributeValuesEqual() noexcept;
-
-        /// Forward declaration for safe compile-time Attribute inequality comparison.
-        template<auto TLeftValue, auto TRightValue>
-        consteval bool AttributeValuesNotEqual() noexcept;
-
-        /// Forward declaration for safe compile-time Attribute greater-than-or-equal comparison.
-        template<auto TLeftValue, auto TRightValue>
-        consteval bool AttributeValueAtLeast() noexcept;
-
-        /// Forward declaration for safe compile-time Attribute less-than-or-equal comparison.
-        template<auto TLeftValue, auto TRightValue>
-        consteval bool AttributeValueAtMost() noexcept;
-
-        /// Forward declaration for safe compile-time Attribute strict greater-than comparison.
-        template<auto TLeftValue, auto TRightValue>
-        consteval bool AttributeValueGreaterThan() noexcept;
-
-        /// Forward declaration for safe compile-time Attribute strict less-than comparison.
-        template<auto TLeftValue, auto TRightValue>
-        consteval bool AttributeValueLessThan() noexcept;
-
-    } // ESPressio::System::CompositionFramework::Detail
 
 
     /// Requires one ordered Attribute value to be greater than or equal to the supplied value.
