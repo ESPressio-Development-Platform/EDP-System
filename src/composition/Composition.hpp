@@ -798,33 +798,33 @@ namespace ESPressio::System::CompositionFramework {
 
 
         /// Determines whether one provider satisfies one capability requirement.
-        template<class TProvider, class TNeed, bool TOffersDeclarationCapability = ProviderOffersCapabilityV<TProvider, typename TNeed::CapabilityType>>
+        template<class TProvider, class TRequirement, bool TOffersDeclarationCapability = ProviderOffersCapabilityV<TProvider, typename TRequirement::CapabilityType>>
         struct ProviderSatisfiesRequirement : std::false_type {};
 
 
         /// Evaluates a capability requirement against a provider that supplies the required capability.
-        template<class TProvider, class TNeed>
-        struct ProviderSatisfiesRequirement<TProvider, TNeed, true> : std::bool_constant<
-            TNeed::template OfferSatisfied<
-                typename TProvider::CompositionOffers::template OfferFor<typename TNeed::CapabilityType>
+        template<class TProvider, class TRequirement>
+        struct ProviderSatisfiesRequirement<TProvider, TRequirement, true> : std::bool_constant<
+            TRequirement::template OfferSatisfied<
+                typename TProvider::CompositionOffers::template OfferFor<typename TRequirement::CapabilityType>
             >
         > {};
 
 
         /// Counts providers that satisfy one capability requirement.
-        template<class TNeed, class... TProviders>
+        template<class TRequirement, class... TProviders>
         inline constexpr std::size_t SatisfyingProviderCountV =
-            (std::size_t{0U} + ... + (ProviderSatisfiesRequirement<TProviders, TNeed>::value ? std::size_t{1U} : std::size_t{0U}));
+            (std::size_t{0U} + ... + (ProviderSatisfiesRequirement<TProviders, TRequirement>::value ? std::size_t{1U} : std::size_t{0U}));
 
 
         /// Selects the first provider satisfying one complete capability requirement.
-        template<class TNeed, class... TProviders>
+        template<class TRequirement, class... TProviders>
         struct FirstSatisfyingProvider;
 
 
         /// Represents an unsuccessful satisfying-provider lookup.
-        template<class TNeed>
-        struct FirstSatisfyingProvider<TNeed> {
+        template<class TRequirement>
+        struct FirstSatisfyingProvider<TRequirement> {
 
             // Lookup result.
 
@@ -835,29 +835,29 @@ namespace ESPressio::System::CompositionFramework {
 
 
         /// Continues a satisfying-provider lookup until one provider satisfies the requested Requirement.
-        template<class TNeed, class TFirstProvider, class... TRestProviders>
-        struct FirstSatisfyingProvider<TNeed, TFirstProvider, TRestProviders...> {
+        template<class TRequirement, class TFirstProvider, class... TRestProviders>
+        struct FirstSatisfyingProvider<TRequirement, TFirstProvider, TRestProviders...> {
 
             // Lookup result.
 
             /// First provider satisfying the Requirement, or the result of searching the remaining providers.
             using Type = std::conditional_t<
-                ProviderSatisfiesRequirement<TFirstProvider, TNeed>::value,
+                ProviderSatisfiesRequirement<TFirstProvider, TRequirement>::value,
                 TFirstProvider,
-                typename FirstSatisfyingProvider<TNeed, TRestProviders...>::Type
+                typename FirstSatisfyingProvider<TRequirement, TRestProviders...>::Type
             >;
 
         };
 
 
         /// Filters a provider pack to providers satisfying one complete capability requirement.
-        template<class TNeed, class TAccumulatedProviders, class... TProviders>
+        template<class TRequirement, class TAccumulatedProviders, class... TProviders>
         struct FilterSatisfyingProviders;
 
 
         /// Completes satisfying-provider filtering when no providers remain to inspect.
-        template<class TNeed, class... TAccumulatedProviders>
-        struct FilterSatisfyingProviders<TNeed, ProviderList<TAccumulatedProviders...>> {
+        template<class TRequirement, class... TAccumulatedProviders>
+        struct FilterSatisfyingProviders<TRequirement, ProviderList<TAccumulatedProviders...>> {
 
             // Filtering result.
 
@@ -868,20 +868,20 @@ namespace ESPressio::System::CompositionFramework {
 
 
         /// Adds providers satisfying the Requirement to the accumulated list and continues filtering.
-        template<class TNeed, class... TAccumulatedProviders, class TFirstProvider, class... TRestProviders>
-        struct FilterSatisfyingProviders<TNeed, ProviderList<TAccumulatedProviders...>, TFirstProvider, TRestProviders...> {
+        template<class TRequirement, class... TAccumulatedProviders, class TFirstProvider, class... TRestProviders>
+        struct FilterSatisfyingProviders<TRequirement, ProviderList<TAccumulatedProviders...>, TFirstProvider, TRestProviders...> {
 
             // Filtering state.
 
             /// Provider list to use for the next filtering step.
             using NextProviders = std::conditional_t<
-                ProviderSatisfiesRequirement<TFirstProvider, TNeed>::value,
+                ProviderSatisfiesRequirement<TFirstProvider, TRequirement>::value,
                 ProviderList<TAccumulatedProviders..., TFirstProvider>,
                 ProviderList<TAccumulatedProviders...>
             >;
 
             /// Final provider list returned after the remaining providers are inspected.
-            using Type = typename FilterSatisfyingProviders<TNeed, NextProviders, TRestProviders...>::Type;
+            using Type = typename FilterSatisfyingProviders<TRequirement, NextProviders, TRestProviders...>::Type;
 
         };
 
