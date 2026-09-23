@@ -2,218 +2,314 @@
 
 ## Purpose
 
-Composition flag properties describe a finite set of orthogonal compile-time features belonging to one capability.
+`FlagProperty` represents a finite, strongly typed compile-time feature set advertised by a capability Offer.
 
-They are appropriate when a provider can support several independent characteristics simultaneously and a consumer needs to qualify providers by asking whether all, any, or none of a named set of features are present.
+It is useful when a provider supports several independent features and a Requirement needs to qualify providers by combinations of those features.
 
-The facility is deliberately built on the existing Composition Property model. It does **not** replace Capabilities, Providers, Offers, Needs, Attributes, or provider resolution.
+Flag Properties are compile-time metadata. They do not store runtime feature state.
 
-## Architectural boundary
+## Declaring a Flag Vocabulary
 
-Use a flag property when the question is:
+Define an enum whose values identify the available features:
 
-> Which members of this finite feature vocabulary does this one capability support?
-
-Do not use a flag property to collapse unrelated architectural services into one mask.
-
-For example, this is appropriate:
-
-~~~text
-Radio
-    Broadcast
-    ReliableDelivery
-    ReceiveTimestamp
-    LowEnergy
-~~~
-
-These are facets of one Radio capability.
-
-This is not appropriate:
-
-~~~text
-SystemFeatures
-    Clock
-    Persistence
-    Radio
-    Encryption
-~~~
-
-Clock, Persistence, Radio, and Encryption are separate architectural services and should remain separate Composition Capabilities.
-
-The same distinction applies to runtime state. A flag property describes what the compiled provider is capable of. It must not be used for values such as current connection state, present battery condition, or live queue occupancy.
-
-## Declaring a flag vocabulary
-
-Flag enums use the same contract as `ESPressio::System::FlagSet`: each enum value is a **zero-based bit position**, not a pre-shifted mask.
-
-~~~cpp
+```cpp
 enum class RadioFeature : std::uint8_t {
     Broadcast = 0,
-    ReliableDelivery = 1,
+    Acknowledgements = 1,
     ReceiveTimestamp = 2,
     LowEnergy = 3
 };
-~~~
+```
 
-A concrete flag-valued Property derives from `FlagProperty`:
+Then declare the Property:
 
-~~~cpp
-struct SupportedFeatures final : Composition::FlagProperty<
+```cpp
+struct SupportedFeatures final : Framework::FlagProperty<
     Radio,
     RadioFeature,
     std::uint8_t
 > {};
-~~~
+```
 
-The template parameters are the capability being described, the enum defining the finite flag vocabulary, and the unsigned storage type used as the complete compile-time representation.
+The first template argument is the owning Capability, the second is the typed flag domain, and the third is the compact integral storage Type.
 
-The storage type defaults to `std::uint32_t`, but constrained embedded contracts should deliberately select the smallest width which accommodates the stable vocabulary.
+The Framework validates that advertised flags belong to the declared enum domain and fit the selected storage representation.
 
-## Advertising provider features
+## Advertising Provider Features
 
-A provider advertises features using `FlagPropertyValue`:
+A provider advertises a typed feature set through `FlagPropertyValue` inside an `Offer`:
 
-~~~cpp
-class TimestampedRadio final : public Composition::Provider<
+```cpp
+struct TimestampedRadio final : Framework::Provider<
     RadioDomain,
-    Composition::Provides<
-        Composition::Offer<
+    Framework::Offers<
+        Framework::Offer<
             Radio,
-            Composition::FlagPropertyValue<
+            Framework::FlagPropertyValue<
                 SupportedFeatures,
                 RadioFeature::Broadcast,
-                RadioFeature::ReliableDelivery,
+                RadioFeature::Acknowledgements,
                 RadioFeature::ReceiveTimestamp
             >
         >
     >
 > {};
-~~~
+```
 
-No raw mask needs to be written or maintained.
+Another provider can advertise a different set:
 
-An empty value is valid when a provider deliberately advertises the Property but supports none of its flags:
+```cpp
+struct LowEnergyRadio final : Framework::Provider<
+    RadioDomain,
+    Framework::Offers<
+        Framework::Offer<
+            Radio,
+            Framework::FlagPropertyValue<
+                SupportedFeatures,
+                RadioFeature::Broadcast,
+                RadioFeature::LowEnergy
+            >
+        >
+    >
+> {};
+```
 
-~~~cpp
-Composition::FlagPropertyValue<SupportedFeatures>
-~~~
+An empty `FlagPropertyValue<SupportedFeatures>` has a zero representation.
 
-That is different from omitting the Property entirely. Omitting a Property means that a constraint requiring that Property cannot be satisfied.
+## Requiring All Flags
 
-## Requiring all flags
+`HasAllFlags` requires every supplied flag to be present:
 
-`HasAllFlags` requires every named flag to be present:
-
-~~~cpp
-using ReliableTimestampRadio = Composition::Need<
+```cpp
+using ReliableTimestampRequirement = Framework::Requirement<
     Radio,
-    Composition::HasAllFlags<
+    Framework::RequirementScope::SameDomain,
+    Framework::ExactlyProviders<1U>,
+    Framework::HasAllFlags<
         SupportedFeatures,
-        RadioFeature::ReliableDelivery,
+        RadioFeature::Acknowledgements,
         RadioFeature::ReceiveTimestamp
     >
 >;
-~~~
+```
 
-## Requiring any flag
+A provider missing either requested feature does not match.
 
-`HasAnyFlags` requires at least one named flag to be present:
+## Requiring Any Flag
 
-~~~cpp
-using TimestampOrLowEnergyRadio = Composition::Need<
+`HasAnyFlags` requires at least one supplied flag:
+
+```cpp
+using SpecializedRadioRequirement = Framework::Requirement<
     Radio,
-    Composition::HasAnyFlags<
+    Framework::RequirementScope::SameDomain,
+    Framework::AtLeastProviders<1U>,
+    Framework::HasAnyFlags<
         SupportedFeatures,
-        RadioFeature::ReceiveTimestamp,
+        RadioFeature::LowEnergy,
+        RadioFeature::ReceiveTimestamp
+    >
+>;
+```
+
+Multiple providers may match.
+
+## Requiring Flags to Be Absent
+
+`HasNoFlags` requires all supplied flags to be absent from the advertised FlagProperty value:
+
+```cpp
+using NonLowEnergyRequirement = Framework::Requirement<
+    Radio,
+    Framework::RequirementScope::SameDomain,
+    Framework::ExactlyProviders<1U>,
+    Framework::HasNoFlags<
+        SupportedFeatures,
         RadioFeature::LowEnergy
     >
 >;
-~~~
+```
 
-## Requiring flags to be absent
+A provider which does not advertise `SupportedFeatures` at all does not satisfy this constraint. Absence of the Property is not treated as a zero-valued feature set.
 
-`HasNoFlags` requires every named flag to be clear:
+Use ordinary Property presence/absence constraints when Property existence itself is part of the qualification.
 
-~~~cpp
-using NonLowEnergyRadio = Composition::Need<
+## Provider Matching and Selection
+
+Use canonical Requirement queries:
+
+```cpp
+using MatchingRadios =
+    RadioComposition::Matches<SpecializedRadioRequirement>;
+
+static_assert(
+    RadioComposition::MatchCount<SpecializedRadioRequirement> == 2U
+);
+```
+
+When one provider is required, make the selection policy explicit:
+
+```cpp
+using RadioProvider = RadioComposition::Select<
+    ReliableTimestampRequirement,
+    Framework::SelectUnique
+>;
+```
+
+The Requirement cardinality describes architectural acceptability. `SelectUnique` describes the result shape requested by the caller.
+
+## Compatibility with Ordinary Property Queries
+
+A `FlagProperty` remains a Property and its compact storage value is available through the normal Property metadata surface.
+
+For example:
+
+```cpp
+static_assert(
+    RadioComposition::PropertiesForProvider<
+        TimestampedRadio,
+        Radio
+    >::template Value<SupportedFeatures> == 0x07U
+);
+```
+
+Ordinary numeric constraints such as `Equals` may also inspect the underlying representation when that is intentionally part of the contract:
+
+```cpp
+using ExactFeatureStorage = Framework::Requirement<
     Radio,
-    Composition::HasNoFlags<
+    Framework::RequirementScope::SameDomain,
+    Framework::ExactlyProviders<1U>,
+    Framework::Equals<
         SupportedFeatures,
-        RadioFeature::LowEnergy
+        0x07U
     >
 >;
-~~~
+```
 
-A provider which does not advertise `SupportedFeatures` does **not** satisfy this constraint. Absence of the Property is not interpreted as authoritative evidence that every flag is clear.
+For feature semantics, prefer `HasAllFlags`, `HasAnyFlags` and `HasNoFlags` because they retain the typed flag vocabulary.
 
-## Provider resolution
+## Logical Composition
 
-Flag constraints participate in the existing Need/provider matching machinery. No special resolver exists for them.
+Flag constraints can participate in the same logical constraint expressions as other Requirement constraints:
 
-Existing APIs continue to apply:
+```cpp
+using Requirement = Framework::Requirement<
+    Radio,
+    Framework::RequirementScope::AnyDomain,
+    Framework::AtLeastProviders<1U>,
+    Framework::AnyOf<
+        Framework::HasAllFlags<
+            SupportedFeatures,
+            RadioFeature::ReceiveTimestamp
+        >,
+        Framework::HasAllFlags<
+            SupportedFeatures,
+            RadioFeature::LowEnergy
+        >
+    >
+>;
+```
 
-~~~text
-ProviderCountSatisfying<TNeed>
-HasProviderSatisfying<TNeed>
-ProvidersSatisfying<TNeed>
-ProviderSatisfying<TNeed>
-~~~
+## Compile-Time Diagnostics
 
-This is intentional: flag-valued Properties extend qualification semantics without creating a parallel Composition model.
+The Framework rejects invalid declarations including:
 
-## Compatibility with ordinary Property queries
+- flags from an unrelated enum Type;
+- values that cannot be represented by the selected storage Type;
+- a FlagProperty associated with an invalid Capability;
+- constraints applied to the wrong Property/Capability domain;
+- empty flag-constraint argument lists where the operation requires at least one flag.
 
-A `FlagProperty` stores its compile-time value as the selected unsigned integral storage type.
+These failures occur at compile time.
 
-Consequently existing `PropertySet::Value<>` queries remain valid, and existing generic constraints such as `Equals<SupportedFeatures, ...>` remain available when raw representation equality is genuinely required.
+## Runtime and Memory Cost
 
-For normal feature advertisement and matching, prefer `FlagPropertyValue` and the typed flag constraints because they preserve enum-domain checking and avoid manually maintained masks.
+`FlagProperty`, `FlagPropertyValue`, and the associated Requirement constraints are compile-time Types.
 
-## Compile-time diagnostics
+They do not allocate memory, create provider instances, or add runtime lookup structures.
 
-The typed helper surface rejects:
+The runtime provider object is exactly the provider object Bootstrap chooses to instantiate.
 
-- a non-`FlagProperty` used with flag-specific helpers;
-- flags from a different enum domain;
-- flag positions which do not fit the Property storage type;
-- empty `HasAllFlags`, `HasAnyFlags`, or `HasNoFlags` constraints.
+## Relationship to Runtime FlagSet
 
-These are architecture-definition errors and therefore intentionally fail compilation.
+Composition Flag Properties and `FlagSet` solve different problems.
 
-## Runtime and memory cost
+- `FlagProperty` describes immutable compile-time provider characteristics.
+- `FlagSet` stores mutable runtime flags.
 
-The feature introduces no Composition-owned runtime object and performs no runtime allocation.
+Do not use Composition metadata for mutable connection state, current hardware status, peer state, or other runtime facts.
 
-`FlagPropertyValue` reduces its typed flag list to the selected unsigned storage representation during compilation. The all/any/none constraints are evaluated during template instantiation as part of normal Composition provider matching.
+## Complete Example
 
-Runtime cost is therefore zero.
+```cpp
+namespace Framework = ESPressio::System::CompositionFramework;
 
-## Relationship to runtime FlagSet
+enum class RadioFeature : std::uint8_t {
+    Broadcast = 0,
+    ReceiveTimestamp = 1,
+    LowEnergy = 2
+};
 
-`FlagProperty` and `ESPressio::System::FlagSet` deliberately share the same flag vocabulary contract:
+struct RadioDomain final : Framework::Domain {};
+struct Radio final : Framework::SharedCapability<RadioDomain> {};
 
-~~~text
-enum value = zero-based bit position
-~~~
+struct SupportedFeatures final : Framework::FlagProperty<
+    Radio,
+    RadioFeature,
+    std::uint8_t
+> {};
 
-The two uses remain distinct:
+struct TimestampedRadio final : Framework::Provider<
+    RadioDomain,
+    Framework::Offers<
+        Framework::Offer<
+            Radio,
+            Framework::FlagPropertyValue<
+                SupportedFeatures,
+                RadioFeature::Broadcast,
+                RadioFeature::ReceiveTimestamp
+            >
+        >
+    >
+> {};
 
-~~~text
-Composition FlagProperty
-    compile-time provider characteristic
+struct LowEnergyRadio final : Framework::Provider<
+    RadioDomain,
+    Framework::Offers<
+        Framework::Offer<
+            Radio,
+            Framework::FlagPropertyValue<
+                SupportedFeatures,
+                RadioFeature::Broadcast,
+                RadioFeature::LowEnergy
+            >
+        >
+    >
+> {};
 
-FlagSet
-    compact runtime value representation
-~~~
+using TimestampRequirement = Framework::Requirement<
+    Radio,
+    Framework::RequirementScope::SameDomain,
+    Framework::ExactlyProviders<1U>,
+    Framework::HasAllFlags<
+        SupportedFeatures,
+        RadioFeature::ReceiveTimestamp
+    >
+>;
 
-A runtime state variable must not be moved into Composition merely because it uses the same enum.
+using RadioComposition = Framework::Composition<
+    RadioDomain,
+    TimestampedRadio,
+    LowEnergyRadio
+>;
 
-## Complete demonstration
+using Selected = RadioComposition::Select<
+    TimestampRequirement,
+    Framework::SelectUnique
+>;
 
-A buildable example is provided under:
+static_assert(std::is_same_v<Selected, TimestampedRadio>);
+```
 
-~~~text
-demos/composition-flag-properties/
-~~~
-
-with Arduino IDE, PIOArduino/PlatformIO Arduino, and PIOArduino/PlatformIO ESP-IDF targets.
+The buildable demonstration is under `demos/composition-flag-properties`.
