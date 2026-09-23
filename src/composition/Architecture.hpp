@@ -236,10 +236,12 @@ namespace ESPressio::System::CompositionFramework {
             SameProvider<TRequirements...>,
             TProviderList
         > : std::bool_constant<
-            JointlySatisfyingProviderCount<
-                RequirementList<TRequirements...>,
-                TProviderList
-            >::value > 0U
+            (
+                JointlySatisfyingProviderCount<
+                    RequirementList<TRequirements...>,
+                    TProviderList
+                >::value > 0U
+            )
         > {};
 
 

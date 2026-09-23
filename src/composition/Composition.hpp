@@ -1159,7 +1159,7 @@ namespace ESPressio::System::CompositionFramework {
             class TEnable = void
         >
         struct RequirementCardinalitySatisfied : std::bool_constant<
-            TProviderCount > 0U
+            (TProviderCount > 0U)
         > {};
 
 
@@ -1997,14 +1997,16 @@ namespace ESPressio::System::CompositionFramework {
             SameProvider<TRequirements...>,
             TProviderList
         > : std::bool_constant<
-            !RequirementsHaveScope<
-                RequirementList<TRequirements...>,
-                RequirementScope::SameDomain
-            >::value ||
-            JointlySatisfyingProviderCount<
-                RequirementList<TRequirements...>,
-                TProviderList
-            >::value > 0U
+            (
+                !RequirementsHaveScope<
+                    RequirementList<TRequirements...>,
+                    RequirementScope::SameDomain
+                >::value ||
+                JointlySatisfyingProviderCount<
+                    RequirementList<TRequirements...>,
+                    TProviderList
+                >::value > 0U
+            )
         > {};
 
 
