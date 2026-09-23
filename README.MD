@@ -18,7 +18,7 @@ The following facilities are currently provided by the System library:
   Defines non-owning runtime binding and traversal of Bootstrap-owned instances represented by plural compile-time provider-resolution results.
 
 - [Qualified Composition Resolution](./docs/COMPOSITION-QUALIFIED-RESOLUTION.MD)  
-  Defines open compile-time provider Attributes, qualified SharedCapability resolution, cross-domain `DependsOn<>` dependencies, and multi-domain `Architecture<>` validation.
+  Defines open compile-time provider Attributes, qualified SharedCapability resolution, cross-domain `Requirement` clauses inside consolidated `Contract<>` declarations, and multi-domain `Architecture<>` validation.
 
 - [Flag Set](./docs/FLAG-SET.MD)  
   Defines the allocation-free, strongly typed compact runtime flag representation, state-aware construction, mutation/predicate operations, raw representation access, and storage guarantees.
