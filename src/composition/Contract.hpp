@@ -119,12 +119,6 @@ namespace ESPressio::System::CompositionFramework {
             "Requirement contains a constraint that cannot be applied to the requested capability"
         );
 
-        // Compatibility metadata used by the current matching core during migration.
-
-        /// Marker allowing the existing qualified-matching machinery to inspect Requirement declarations.
-        using NeedTag = void;
-
-
         // Requirement metadata.
 
         /// Marker identifying the consolidated Requirement declaration.
