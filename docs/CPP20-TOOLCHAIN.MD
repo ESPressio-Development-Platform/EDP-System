@@ -18,7 +18,7 @@ A minimal `platformio.ini` is:
 
 ```ini
 [env:esp32dev]
-platform = https://github.com/pioarduino/platform-espressif32/releases/download/stable/platform-espressif32.zip
+platform = https://github.com/pioarduino/platform-espressif32/releases/download/55.03.312-1/platform-espressif32.zip
 board = esp32dev
 framework = arduino
 
@@ -31,9 +31,9 @@ build_flags =
     -std=gnu++20
 ```
 
-The `stable` PIOArduino URL deliberately tracks its maintained stable ESP32 platform package.
+The repository demos pin PIOArduino release `55.03.312-1`, the release validated with PlatformIO Core 6.2.0 and its SCons 4.11.1 build engine.
 
-Applications which require reproducible toolchain pinning should replace the `stable` URL with the exact PIOArduino release selected and validated by that application.
+Applications may choose a newer validated release, but should pin an exact PIOArduino release rather than relying on a moving alias when reproducible embedded builds are required.
 
 ---
 
@@ -44,7 +44,7 @@ Developers do not need to abandon the PlatformIO project format or PlatformIO Co
 A stock PlatformIO installation can consume the maintained PIOArduino platform package by using its package URL in the project's `platform` setting:
 
 ```ini
-platform = https://github.com/pioarduino/platform-espressif32/releases/download/stable/platform-espressif32.zip
+platform = https://github.com/pioarduino/platform-espressif32/releases/download/55.03.312-1/platform-espressif32.zip
 ```
 
 This avoids relying on the older Arduino-ESP32 framework version bundled by the official PlatformIO Espressif32 platform.
@@ -69,7 +69,7 @@ The same maintained platform package can be used with ESP-IDF:
 
 ```ini
 [env:esp32dev]
-platform = https://github.com/pioarduino/platform-espressif32/releases/download/stable/platform-espressif32.zip
+platform = https://github.com/pioarduino/platform-espressif32/releases/download/55.03.312-1/platform-espressif32.zip
 board = esp32dev
 framework = espidf
 
