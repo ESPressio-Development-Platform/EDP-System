@@ -695,12 +695,12 @@ namespace ESPressio::System::CompositionFramework {
 
         /// Default provider metadata for Types that are not provider declarations.
         template<class TDomain, class TProvider, class = void>
-        struct IsProviderFor : std::false_type {};
+        struct IsProviderDeclarationForDomain : std::false_type {};
 
 
         /// Validates a concrete provider Type against a composition Domain.
         template<class TDomain, class TProvider>
-        struct IsProviderFor<
+        struct IsProviderDeclarationForDomain<
             TDomain,
             TProvider,
             std::void_t<
@@ -2071,7 +2071,7 @@ namespace ESPressio::System::CompositionFramework {
         // Match diagnostics.
 
         /// Indicates whether the provider supplies the requested Capability.
-        static constexpr bool ProvidesCapability =
+        static constexpr bool OffersCapability =
             Detail::ProviderOffersCapabilityV<
                 TProvider,
                 typename TRequirement::CapabilityType
@@ -2079,7 +2079,7 @@ namespace ESPressio::System::CompositionFramework {
 
         /// Indicates whether every qualification constraint is satisfied when the Capability is supplied.
         static constexpr bool ConstraintsSatisfied = []() constexpr {
-            if constexpr (!ProvidesCapability) {
+            if constexpr (!OffersCapability) {
                 return false;
             } else {
                 using OfferType = typename TProvider::CompositionOffers::template OfferFor<
@@ -2092,7 +2092,7 @@ namespace ESPressio::System::CompositionFramework {
 
         /// Indicates whether the provider satisfies the complete Requirement qualification.
         static constexpr bool IsSatisfied =
-            ProvidesCapability &&
+            OffersCapability &&
             ConstraintsSatisfied;
 
     };
@@ -2166,7 +2166,7 @@ namespace ESPressio::System::CompositionFramework {
         );
 
         static_assert(
-            (Detail::IsProviderFor<TDomain, TProviders>::value && ...),
+            (Detail::IsProviderDeclarationForDomain<TDomain, TProviders>::value && ...),
             "Composition contains a provider that is invalid or belongs to another domain"
         );
 
