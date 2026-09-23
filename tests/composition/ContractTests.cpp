@@ -592,7 +592,7 @@ namespace ESPressio::System::Tests::CompositionContracts {
         Framework::ProviderMatch<
             WifiRadioProvider,
             ConsumerWifiRadio
-        >::ProvidesCapability,
+        >::OffersCapability,
         "Wi-Fi provider must advertise Radio"
     );
 
