@@ -21,7 +21,7 @@ namespace Example {
     /// Concrete clock provider used by this example application.
     class ExampleClock final : public Composition::Provider<
         PlatformDomain,
-        Composition::Provides<
+        Composition::Offers<
             Composition::Offer<
                 SystemClock,
                 Composition::PropertyValue<
@@ -60,6 +60,14 @@ namespace Example {
     };
 
 
+    /// Requirement selecting the unique application SystemClock provider.
+    using SystemClockRequirement = Composition::Requirement<
+        SystemClock,
+        Composition::RequirementScope::SameDomain,
+        Composition::ExactlyProviders<1U>
+    >;
+
+
     /// Complete compile-time architecture for the example application.
     using ApplicationComposition = Composition::Composition<
         PlatformDomain,
@@ -75,7 +83,10 @@ namespace Example {
             // Runtime providers.
 
             /// Concrete provider selected by the composition for the SystemClock capability.
-            ApplicationComposition::ProviderFor<SystemClock> _clock;
+            ApplicationComposition::Select<
+                SystemClockRequirement,
+                Composition::SelectUnique
+            > _clock;
 
         public:
 
