@@ -28,7 +28,7 @@ namespace Demo {
     /// First concrete Radio provider distinguished only by compile-time Attributes.
     class FrequencyXRadio final : public Framework::Provider<
         RadioDomain,
-        Framework::Provides<
+        Framework::Offers<
             Framework::Offer<
                 Radio,
                 Framework::Attribute<
@@ -47,7 +47,7 @@ namespace Demo {
     /// Second concrete Radio provider distinguished only by compile-time Attributes.
     class FrequencyYRadio final : public Framework::Provider<
         RadioDomain,
-        Framework::Provides<
+        Framework::Offers<
             Framework::Offer<
                 Radio,
                 Framework::Attribute<
@@ -64,8 +64,10 @@ namespace Demo {
 
 
     /// Requirement selecting the Telemetry Radio without naming its concrete implementation.
-    using TelemetryRadioRequirement = Framework::Need<
+    using TelemetryRadioRequirement = Framework::Requirement<
         Radio,
+        Framework::RequirementScope::ExternalDomain,
+        Framework::ExactlyProviders<1U>,
         Framework::AttributeEquals<
             "Frequency",
             24917U
@@ -78,8 +80,10 @@ namespace Demo {
 
 
     /// Requirement selecting the Control Radio without naming its concrete implementation.
-    using ControlRadioRequirement = Framework::Need<
+    using ControlRadioRequirement = Framework::Requirement<
         Radio,
+        Framework::RequirementScope::ExternalDomain,
+        Framework::ExactlyProviders<1U>,
         Framework::AttributeEquals<
             "Frequency",
             58124U
@@ -94,11 +98,10 @@ namespace Demo {
     /// Service provider declaring cross-domain dependencies on both qualified Radio providers.
     class TelemetryServiceProvider final : public Framework::Provider<
         ServiceDomain,
-        Framework::Provides<
+        Framework::Offers<
             Framework::Offer<TelemetryService>
         >,
-        Framework::Requires<>,
-        Framework::DependsOn<
+        Framework::Contract<
             TelemetryRadioRequirement,
             ControlRadioRequirement
         >
@@ -128,13 +131,15 @@ namespace Demo {
 
 
     /// Concrete Telemetry Radio selected entirely from compile-time capability and Attribute requirements.
-    using TelemetryRadioProvider = ApplicationArchitecture::ProviderSatisfying<
-        TelemetryRadioRequirement
+    using TelemetryRadioProvider = ApplicationArchitecture::Select<
+        TelemetryRadioRequirement,
+        Framework::SelectUnique
     >;
 
     /// Concrete Control Radio selected entirely from compile-time capability and Attribute requirements.
-    using ControlRadioProvider = ApplicationArchitecture::ProviderSatisfying<
-        ControlRadioRequirement
+    using ControlRadioProvider = ApplicationArchitecture::Select<
+        ControlRadioRequirement,
+        Framework::SelectUnique
     >;
 
 
