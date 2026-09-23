@@ -67,71 +67,6 @@ namespace ESPressio::System::CompositionFramework {
         > {};
 
 
-        /// Counts providers satisfying one Need within a Composition only when the Need belongs to that Composition domain.
-        template<
-            class TNeed,
-            class TComposition,
-            bool TDomainMatches = std::is_same_v<typename TNeed::CompositionDomain, typename TComposition::CompositionDomain>
-        >
-        struct SatisfyingProviderCountInComposition : std::integral_constant<std::size_t, 0U> {};
-
-
-        /// Returns the satisfying-provider count when the Need belongs to the inspected Composition domain.
-        template<class TNeed, class TComposition>
-        struct SatisfyingProviderCountInComposition<TNeed, TComposition, true> : std::integral_constant<
-            std::size_t,
-            TComposition::template ProviderCountSatisfying<TNeed>
-        > {};
-
-
-        /// Counts providers satisfying one Need across every Composition participating in an Architecture.
-        template<class TNeed, class... TCompositions>
-        inline constexpr std::size_t ArchitectureSatisfyingProviderCountV =
-            (std::size_t{0U} + ... + SatisfyingProviderCountInComposition<TNeed, TCompositions>::value);
-
-
-        /// Determines whether every Need in one DependsOn declaration is satisfied across an Architecture.
-        template<class TDependsOn, class... TCompositions>
-        struct DependenciesSatisfied;
-
-
-        /// Evaluates every cross-domain Requirement contained in one DependsOn declaration.
-        ///
-        /// Consolidated Requirement cardinality is enforced while temporary legacy Needs retain
-        /// their historical at-least-one-provider semantics during downstream migration.
-        ///
-        /// @tparam TRequirements Cross-domain Requirements being evaluated.
-        /// @tparam TCompositions Domain Compositions participating in the Architecture.
-        template<class... TRequirements, class... TCompositions>
-        struct DependenciesSatisfied<
-            DependsOn<TRequirements...>,
-            TCompositions...
-        > : std::bool_constant<
-            (
-                RequirementCardinalitySatisfied<
-                    TRequirements,
-                    ArchitectureSatisfyingProviderCountV<
-                        TRequirements,
-                        TCompositions...
-                    >
-                >::value &&
-                ...
-            )
-        > {};
-
-
-        /// Determines whether every provider in one ProviderList has its cross-domain dependencies satisfied.
-        template<class TProviderList, class... TCompositions>
-        struct ProviderListDependenciesSatisfied;
-
-
-        /// Evaluates each provider's cross-domain dependency declaration against the complete Architecture.
-        template<class... TProviders, class... TCompositions>
-        struct ProviderListDependenciesSatisfied<ProviderList<TProviders...>, TCompositions...> : std::bool_constant<
-            (DependenciesSatisfied<typename TProviders::CompositionDependencies, TCompositions...>::value && ...)
-        > {};
-
-
         /// Concatenates every provider list represented by one Architecture.
         ///
         /// @tparam TCompositions Domain Compositions whose providers are being flattened.
@@ -293,7 +228,7 @@ namespace ESPressio::System::CompositionFramework {
 
         /// Evaluates one consolidated Contract across an Architecture.
         ///
-        /// @tparam TContract Contract or void while one provider remains on the temporary migration path.
+        /// @tparam TContract Contract.
         /// @tparam TProviderList Complete Architecture provider population.
         template<class TContract, class TProviderList>
         struct ContractSatisfiedInArchitecture : std::true_type {};
@@ -442,7 +377,7 @@ namespace ESPressio::System::CompositionFramework {
         /// Evaluates one provider-owned consolidated Contract across an Architecture.
         ///
         /// @tparam TOwnerProvider Provider owning the Contract.
-        /// @tparam TContract Contract or void while one provider remains on the temporary migration path.
+        /// @tparam TContract Contract.
         /// @tparam TProviderList Complete Architecture provider population.
         template<
             class TOwnerProvider,
@@ -542,7 +477,7 @@ namespace ESPressio::System::CompositionFramework {
             TArchitectureProviders,
             true
         > : std::bool_constant<
-            ProviderSatisfiesNeed<
+            ProviderSatisfiesRequirement<
                 TBefore,
                 TRequirement
             >::value
@@ -568,7 +503,7 @@ namespace ESPressio::System::CompositionFramework {
             TArchitectureProviders,
             false
         > : std::bool_constant<
-            ProviderSatisfiesNeed<
+            ProviderSatisfiesRequirement<
                 TAfter,
                 TRequirement
             >::value
@@ -1041,14 +976,7 @@ namespace ESPressio::System::CompositionFramework {
             false
         >::Type;
 
-        /// Indicates whether every provider's cross-domain dependencies are satisfied by participating Compositions.
-        static constexpr bool AllDependenciesSatisfied =
-            (Detail::ProviderListDependenciesSatisfied<
-                typename TCompositions::ProviderTypes,
-                TCompositions...
-            >::value && ...);
-
-        /// Indicates whether every consolidated provider Contract is satisfied across the complete Architecture.
+        /// Indicates whether every provider Contract is satisfied across the complete Architecture.
         static constexpr bool AllContractsSatisfied =
             (
                 Detail::ProviderListContractsSatisfied<
@@ -1059,13 +987,8 @@ namespace ESPressio::System::CompositionFramework {
             );
 
         static_assert(
-            AllDependenciesSatisfied,
-            "Architecture contains an unsatisfied cross-domain provider dependency"
-        );
-
-        static_assert(
             AllContractsSatisfied,
-            "Architecture contains an unsatisfied consolidated provider Contract"
+            "Architecture contains an unsatisfied provider Contract"
         );
 
         // Architecture metadata.
@@ -1076,9 +999,8 @@ namespace ESPressio::System::CompositionFramework {
         /// Number of Domain Compositions participating in this Architecture.
         static constexpr std::size_t CompositionCount = sizeof...(TCompositions);
 
-        /// Indicates that all participating Compositions and cross-domain dependencies are valid.
+        /// Indicates that all participating Compositions and provider Contracts are valid.
         static constexpr bool IsValid =
-            AllDependenciesSatisfied &&
             AllContractsSatisfied;
 
         // Domain queries.
@@ -1109,34 +1031,51 @@ namespace ESPressio::System::CompositionFramework {
         template<class TDomain>
         using CompositionFor = typename ResolveComposition<TDomain>::Type;
 
-        // Cross-domain qualified provider queries.
+        // Requirement queries.
 
-        /// Returns the number of providers satisfying one Need across the complete Architecture.
-        template<class TNeed>
-        static constexpr std::size_t ProviderCountSatisfying =
-            Detail::ArchitectureSatisfyingProviderCountV<TNeed, TCompositions...>;
+        /// Validates one Requirement before Architecture-wide provider matching is attempted.
+        template<class TRequirement>
+        struct ValidateRequirement {
 
-        /// Indicates whether at least one provider satisfies one Need across the complete Architecture.
-        template<class TNeed>
-        static constexpr bool HasProviderSatisfying = ProviderCountSatisfying<TNeed> > 0U;
+            static_assert(
+                Detail::RequirementTraits<TRequirement>::IsValid,
+                "Architecture provider queries require a consolidated Requirement"
+            );
 
-        /// Returns every provider satisfying one Need from the Composition owning that Need's Domain.
-        template<class TNeed>
-        using ProvidersSatisfying = typename CompositionFor<typename TNeed::CompositionDomain>::template ProvidersSatisfying<TNeed>;
+            static_assert(
+                Detail::CompositionCountForDomainV<
+                    typename TRequirement::CompositionDomain,
+                    TCompositions...
+                > == 1U,
+                "Architecture Requirement Capability Domain is not represented exactly once"
+            );
 
-        /// Returns the unique provider satisfying one Need from the Composition owning that Need's Domain.
-        template<class TNeed>
-        using ProviderSatisfying = typename CompositionFor<typename TNeed::CompositionDomain>::template ProviderSatisfying<TNeed>;
+            /// Indicates that the Requirement is valid for this Architecture.
+            static constexpr bool IsValid = true;
+
+        };
 
 
-        // Consolidated Requirement queries.
+        /// Returns every provider matching one Requirement qualification.
+        ///
+        /// Matching is delegated to the Composition owning the Requirement Capability Domain.
+        ///
+        /// @tparam TRequirement Requirement being queried.
+        template<class TRequirement>
+        using Matches = std::conditional_t<
+            ValidateRequirement<TRequirement>::IsValid,
+            typename CompositionFor<
+                typename TRequirement::CompositionDomain
+            >::template Matches<TRequirement>,
+            ProviderList<>
+        >;
 
         /// Returns the number of providers matching one Requirement qualification.
         ///
         /// @tparam TRequirement Requirement being queried.
         template<class TRequirement>
         static constexpr std::size_t MatchCount =
-            ProviderCountSatisfying<TRequirement>;
+            Matches<TRequirement>::Count;
 
         /// Indicates whether at least one provider matches one Requirement qualification.
         ///
@@ -1144,12 +1083,6 @@ namespace ESPressio::System::CompositionFramework {
         template<class TRequirement>
         static constexpr bool HasMatch =
             MatchCount<TRequirement> > 0U;
-
-        /// Returns every provider matching one Requirement qualification.
-        ///
-        /// @tparam TRequirement Requirement being queried.
-        template<class TRequirement>
-        using Matches = ProvidersSatisfying<TRequirement>;
 
         /// Indicates whether the Architecture provider population obeys one Requirement's cardinality.
         ///
