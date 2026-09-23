@@ -1,5 +1,7 @@
 # EDP-System Dependency Graph
 
+> Revalidated: 2026-09-23 — Composition Framework enhancement migration changes compile-time provider/requirement metadata and validation only; no ESPressio-library dependency edge changed.
+
 > Revalidated: 2026-09-22 — plural provider references use only the C++20 standard library plus existing local Composition types. They introduce no mandatory or optional ESPressio-library dependency. Existing Composition, Identity, FlagSet, and C++20 toolchain facilities remain dependency-neutral.
 
 ## Library Dependency Tree
