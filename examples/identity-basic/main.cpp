@@ -12,7 +12,7 @@ namespace Example {
     /// Example platform-level provider of a permanent DeviceIdentifier.
     class HardwareDeviceIdentity final : public Framework::Provider<
         Identity::Domain,
-        Framework::Provides<
+        Framework::Offers<
             Framework::Offer<Identity::DeviceIdentity>
         >
     > {
@@ -55,7 +55,7 @@ namespace Example {
     /// Example persistence-backed provider of the RuntimeIncarnationIdentity capability.
     class PersistentRuntimeIncarnationIdentity final : public Framework::Provider<
         Identity::Domain,
-        Framework::Provides<
+        Framework::Offers<
             Framework::Offer<Identity::RuntimeIncarnationIdentity>
         >
     > {
@@ -129,6 +129,22 @@ namespace Example {
     };
 
 
+    /// Requirement selecting the unique permanent DeviceIdentity provider.
+    using DeviceIdentityRequirement = Framework::Requirement<
+        Identity::DeviceIdentity,
+        Framework::RequirementScope::SameDomain,
+        Framework::ExactlyProviders<1U>
+    >;
+
+
+    /// Requirement selecting the unique RuntimeIncarnationIdentity provider.
+    using RuntimeIncarnationIdentityRequirement = Framework::Requirement<
+        Identity::RuntimeIncarnationIdentity,
+        Framework::RequirementScope::SameDomain,
+        Framework::ExactlyProviders<1U>
+    >;
+
+
     /// Identity composition selected by this application Bootstrap.
     using ApplicationIdentityComposition = Framework::Composition<
         Identity::Domain,
@@ -140,10 +156,16 @@ namespace Example {
     /// Runs the complete example Bootstrap and consumer lifecycle.
     int Run() noexcept {
         using DeviceIdentityProvider =
-            ApplicationIdentityComposition::ProviderFor<Identity::DeviceIdentity>;
+            ApplicationIdentityComposition::Select<
+                DeviceIdentityRequirement,
+                Framework::SelectUnique
+            >;
 
         using RuntimeIncarnationIdentityProvider =
-            ApplicationIdentityComposition::ProviderFor<Identity::RuntimeIncarnationIdentity>;
+            ApplicationIdentityComposition::Select<
+                RuntimeIncarnationIdentityRequirement,
+                Framework::SelectUnique
+            >;
 
         DeviceIdentityProvider deviceIdentityProvider;
         RuntimeIncarnationIdentityProvider runtimeIncarnationProvider;
