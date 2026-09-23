@@ -14,7 +14,7 @@ namespace Demo {
     /// Demonstration permanent device-identity provider.
     class DeviceIdentityProvider final : public Framework::Provider<
         Identity::Domain,
-        Framework::Provides<
+        Framework::Offers<
             Framework::Offer<Identity::DeviceIdentity>
         >
     > {
@@ -57,7 +57,7 @@ namespace Demo {
     /// Demonstration durable runtime-incarnation provider.
     class RuntimeIncarnationProvider final : public Framework::Provider<
         Identity::Domain,
-        Framework::Provides<
+        Framework::Offers<
             Framework::Offer<Identity::RuntimeIncarnationIdentity>
         >
     > {
@@ -86,6 +86,22 @@ namespace Demo {
     };
 
 
+    /// Requirement selecting the unique DeviceIdentity provider.
+    using DeviceIdentityRequirement = Framework::Requirement<
+        Identity::DeviceIdentity,
+        Framework::RequirementScope::SameDomain,
+        Framework::ExactlyProviders<1U>
+    >;
+
+
+    /// Requirement selecting the unique RuntimeIncarnationIdentity provider.
+    using RuntimeIncarnationIdentityRequirement = Framework::Requirement<
+        Identity::RuntimeIncarnationIdentity,
+        Framework::RequirementScope::SameDomain,
+        Framework::ExactlyProviders<1U>
+    >;
+
+
     /// Compile-time Identity architecture selected by application Bootstrap.
     using ApplicationComposition = Framework::Composition<
         Identity::Domain,
@@ -96,8 +112,14 @@ namespace Demo {
 
     /// Runs the System Identity demonstration.
     int Run() noexcept {
-        ApplicationComposition::ProviderFor<Identity::DeviceIdentity> deviceProvider;
-        ApplicationComposition::ProviderFor<Identity::RuntimeIncarnationIdentity> incarnationProvider;
+        ApplicationComposition::Select<
+            DeviceIdentityRequirement,
+            Framework::SelectUnique
+        > deviceProvider;
+        ApplicationComposition::Select<
+            RuntimeIncarnationIdentityRequirement,
+            Framework::SelectUnique
+        > incarnationProvider;
 
         Identity::DeviceIdentifier deviceIdentifier;
         Identity::RuntimeIncarnationId incarnation;
