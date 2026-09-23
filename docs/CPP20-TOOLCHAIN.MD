@@ -10,15 +10,23 @@ This is a language/toolchain requirement. It does not change ESPressio's embedde
 
 ---
 
-## Recommended ESP32 Arduino Environment: PIOArduino
+## Recommended ESP32 Environment: PIOArduino Core and Platform
 
-For PlatformIO-compatible ESP32 Arduino development, ESPressio recommends the actively maintained PIOArduino platform.
+For PlatformIO-compatible ESP32 Arduino and ESP-IDF development, ESPressio recommends the actively maintained PIOArduino Core together with the PIOArduino ESP32 platform.
+
+The repository-validated baseline is:
+
+- PIOArduino Core `v6.2.0`;
+- `platform-espressif32` release `55.03.312-1`;
+- Arduino-ESP32 `3.3.12` / ESP-IDF `5.5.5` as supplied by that platform release.
+
+The PIOArduino Core is an independent fork of PlatformIO Core. A matching version number on upstream PlatformIO Core must not be assumed to provide identical package-management behavior.
 
 A minimal `platformio.ini` is:
 
 ```ini
 [env:esp32dev]
-platform = https://github.com/pioarduino/platform-espressif32/releases/download/stable/platform-espressif32.zip
+platform = https://github.com/pioarduino/platform-espressif32/releases/download/55.03.312-1/platform-espressif32.zip
 board = esp32dev
 framework = arduino
 
@@ -31,23 +39,23 @@ build_flags =
     -std=gnu++20
 ```
 
-The `stable` PIOArduino URL deliberately tracks its maintained stable ESP32 platform package.
+The repository demos pin PIOArduino release `55.03.312-1`, the release validated with PlatformIO Core 6.2.0 and its SCons 4.11.1 build engine.
 
-Applications which require reproducible toolchain pinning should replace the `stable` URL with the exact PIOArduino release selected and validated by that application.
+Applications may choose a newer validated release, but should pin an exact PIOArduino release rather than relying on a moving alias when reproducible embedded builds are required.
 
 ---
 
-## Using PlatformIO Core or the PlatformIO IDE
+## Core Installation
 
-Developers do not need to abandon the PlatformIO project format or PlatformIO Core.
+Use the PIOArduino Core rather than assuming stock PlatformIO Core is interchangeable with it. The PIOArduino project provides its own installer and Core fork.
 
-A stock PlatformIO installation can consume the maintained PIOArduino platform package by using its package URL in the project's `platform` setting:
+The demo `platformio.ini` files use the standard PlatformIO project format, but validation is performed with PIOArduino Core.
+
+The selected ESP32 platform remains explicit in the project's `platform` setting:
 
 ```ini
-platform = https://github.com/pioarduino/platform-espressif32/releases/download/stable/platform-espressif32.zip
+platform = https://github.com/pioarduino/platform-espressif32/releases/download/55.03.312-1/platform-espressif32.zip
 ```
-
-This avoids relying on the older Arduino-ESP32 framework version bundled by the official PlatformIO Espressif32 platform.
 
 The C++20 build flags should still be made explicit:
 
@@ -69,7 +77,7 @@ The same maintained platform package can be used with ESP-IDF:
 
 ```ini
 [env:esp32dev]
-platform = https://github.com/pioarduino/platform-espressif32/releases/download/stable/platform-espressif32.zip
+platform = https://github.com/pioarduino/platform-espressif32/releases/download/55.03.312-1/platform-espressif32.zip
 board = esp32dev
 framework = espidf
 
@@ -82,7 +90,7 @@ build_flags =
     -std=gnu++20
 ```
 
-A different current ESP-IDF toolchain may also be used provided the complete application build is C++20-capable.
+A different current ESP-IDF toolchain may also be used provided the complete application build is C++20-capable and its Core/platform combination is validated together.
 
 ---
 

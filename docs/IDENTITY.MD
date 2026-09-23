@@ -471,7 +471,7 @@ namespace Identity = ESPressio::System::Identity;
 
 class Esp32DeviceIdentity final : public Framework::Provider<
     Identity::Domain,
-    Framework::Provides<
+    Framework::Offers<
         Framework::Offer<Identity::DeviceIdentity>
     >
 > {
@@ -483,7 +483,7 @@ public:
 
 class PersistentIncarnationCounter final : public Framework::Provider<
     Identity::Domain,
-    Framework::Provides<
+    Framework::Offers<
         Framework::Offer<Identity::RuntimeIncarnationIdentity>
     >
 > {
@@ -497,6 +497,18 @@ public:
 The application selects them:
 
 ```cpp
+using DeviceIdentityRequirement = Framework::Requirement<
+    Identity::DeviceIdentity,
+    Framework::RequirementScope::SameDomain,
+    Framework::ExactlyProviders<1U>
+>;
+
+using RuntimeIncarnationIdentityRequirement = Framework::Requirement<
+    Identity::RuntimeIncarnationIdentity,
+    Framework::RequirementScope::SameDomain,
+    Framework::ExactlyProviders<1U>
+>;
+
 using IdentityComposition = Framework::Composition<
     Identity::Domain,
     Esp32DeviceIdentity,
@@ -507,11 +519,15 @@ using IdentityComposition = Framework::Composition<
 Bootstrap resolves types by capability:
 
 ```cpp
-using DeviceProvider =
-    IdentityComposition::ProviderFor<Identity::DeviceIdentity>;
+using DeviceProvider = IdentityComposition::Select<
+    DeviceIdentityRequirement,
+    Framework::SelectUnique
+>;
 
-using IncarnationProvider =
-    IdentityComposition::ProviderFor<Identity::RuntimeIncarnationIdentity>;
+using IncarnationProvider = IdentityComposition::Select<
+    RuntimeIncarnationIdentityRequirement,
+    Framework::SelectUnique
+>;
 ```
 
 The concrete types are still known at compile time, so there is no runtime registry or virtual dispatch introduced by Composition.
@@ -525,7 +541,7 @@ SecureElementDeviceIdentity
 Bootstrap's capability-oriented code can continue to ask for:
 
 ```cpp
-IdentityComposition::ProviderFor<Identity::DeviceIdentity>
+IdentityComposition::Select<DeviceIdentityRequirement, Framework::SelectUnique>
 ```
 
 The architectural selection changes in the composition declaration rather than leaking through every identity consumer.
@@ -542,8 +558,8 @@ PersistentIncarnationCounter incarnationProvider;
 With Composition:
 
 ```cpp
-IdentityComposition::ProviderFor<Identity::DeviceIdentity> deviceProvider;
-IdentityComposition::ProviderFor<Identity::RuntimeIncarnationIdentity> incarnationProvider;
+IdentityComposition::Select<DeviceIdentityRequirement, Framework::SelectUnique> deviceProvider;
+IdentityComposition::Select<RuntimeIncarnationIdentityRequirement, Framework::SelectUnique> incarnationProvider;
 ```
 
 At runtime, both ultimately instantiate concrete C++ types. The important difference is **where those concrete types are selected**.
@@ -555,6 +571,18 @@ A complete lifecycle should make the initialization boundary obvious:
 ```cpp
 namespace Framework = ESPressio::System::CompositionFramework;
 namespace Identity = ESPressio::System::Identity;
+
+using DeviceIdentityRequirement = Framework::Requirement<
+    Identity::DeviceIdentity,
+    Framework::RequirementScope::SameDomain,
+    Framework::ExactlyProviders<1U>
+>;
+
+using RuntimeIncarnationIdentityRequirement = Framework::Requirement<
+    Identity::RuntimeIncarnationIdentity,
+    Framework::RequirementScope::SameDomain,
+    Framework::ExactlyProviders<1U>
+>;
 
 using IdentityComposition = Framework::Composition<
     Identity::Domain,
@@ -586,10 +614,10 @@ public:
 
 int BootstrapAndRun() {
     using DeviceProvider =
-        IdentityComposition::ProviderFor<Identity::DeviceIdentity>;
+        IdentityComposition::Select<DeviceIdentityRequirement, Framework::SelectUnique>;
 
     using IncarnationProvider =
-        IdentityComposition::ProviderFor<Identity::RuntimeIncarnationIdentity>;
+        IdentityComposition::Select<RuntimeIncarnationIdentityRequirement, Framework::SelectUnique>;
 
     DeviceProvider deviceProvider;
     IncarnationProvider incarnationProvider;

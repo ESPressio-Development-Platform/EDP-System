@@ -48,7 +48,7 @@ namespace ESPressio::System::Tests::CompositionFlagProperty {
     /// Radio provider supporting broadcast, reliable delivery, and receive timestamps.
     struct TimestampedRadioProvider final : Framework::Provider<
         RadioDomain,
-        Framework::Provides<
+        Framework::Offers<
             Framework::Offer<
                 Radio,
                 Framework::FlagPropertyValue<
@@ -69,7 +69,7 @@ namespace ESPressio::System::Tests::CompositionFlagProperty {
     /// Radio provider supporting broadcast and low-energy operation.
     struct LowEnergyRadioProvider final : Framework::Provider<
         RadioDomain,
-        Framework::Provides<
+        Framework::Offers<
             Framework::Offer<
                 Radio,
                 Framework::FlagPropertyValue<
@@ -85,15 +85,17 @@ namespace ESPressio::System::Tests::CompositionFlagProperty {
     /// Radio provider intentionally omitting the optional SupportedFeatures Property.
     struct UnqualifiedRadioProvider final : Framework::Provider<
         RadioDomain,
-        Framework::Provides<
+        Framework::Offers<
             Framework::Offer<Radio>
         >
     > {};
 
 
     /// Requirement demanding both reliable delivery and receive timestamp support.
-    using ReliableTimestampRequirement = Framework::Need<
+    using ReliableTimestampRequirement = Framework::Requirement<
         Radio,
+        Framework::RequirementScope::SameDomain,
+        Framework::ExactlyProviders<1U>,
         Framework::HasAllFlags<
             SupportedFeatures,
             RadioFeature::ReliableDelivery,
@@ -103,8 +105,10 @@ namespace ESPressio::System::Tests::CompositionFlagProperty {
 
 
     /// Requirement accepting either receive timestamp or low-energy support.
-    using TimestampOrLowEnergyRequirement = Framework::Need<
+    using TimestampOrLowEnergyRequirement = Framework::Requirement<
         Radio,
+        Framework::RequirementScope::SameDomain,
+        Framework::AtLeastProviders<1U>,
         Framework::HasAnyFlags<
             SupportedFeatures,
             RadioFeature::ReceiveTimestamp,
@@ -114,8 +118,10 @@ namespace ESPressio::System::Tests::CompositionFlagProperty {
 
 
     /// Requirement excluding providers which advertise low-energy operation.
-    using NoLowEnergyRequirement = Framework::Need<
+    using NoLowEnergyRequirement = Framework::Requirement<
         Radio,
+        Framework::RequirementScope::SameDomain,
+        Framework::ExactlyProviders<1U>,
         Framework::HasNoFlags<
             SupportedFeatures,
             RadioFeature::LowEnergy
@@ -124,8 +130,10 @@ namespace ESPressio::System::Tests::CompositionFlagProperty {
 
 
     /// Existing raw equality requirement used to verify ordinary Property compatibility.
-    using ExactFeatureStorageRequirement = Framework::Need<
+    using ExactFeatureStorageRequirement = Framework::Requirement<
         Radio,
+        Framework::RequirementScope::SameDomain,
+        Framework::ExactlyProviders<1U>,
         Framework::Equals<
             SupportedFeatures,
             0x07U
@@ -201,43 +209,43 @@ namespace ESPressio::System::Tests::CompositionFlagProperty {
     );
 
     static_assert(
-        RadioComposition::ProviderCountSatisfying<ReliableTimestampRequirement> == 1U,
+        RadioComposition::MatchCount<ReliableTimestampRequirement> == 1U,
         "Expected HasAllFlags to retain only the provider advertising every requested feature"
     );
 
     static_assert(
         std::is_same_v<
-            RadioComposition::ProviderSatisfying<ReliableTimestampRequirement>,
+            RadioComposition::Select<ReliableTimestampRequirement, Framework::SelectUnique>,
             TimestampedRadioProvider
         >,
         "Expected HasAllFlags provider resolution to select TimestampedRadioProvider"
     );
 
     static_assert(
-        RadioComposition::ProviderCountSatisfying<TimestampOrLowEnergyRequirement> == 2U,
+        RadioComposition::MatchCount<TimestampOrLowEnergyRequirement> == 2U,
         "Expected HasAnyFlags to retain providers advertising either requested feature"
     );
 
     static_assert(
-        RadioComposition::ProvidersSatisfying<TimestampOrLowEnergyRequirement>::Count == 2U,
+        RadioComposition::Matches<TimestampOrLowEnergyRequirement>::Count == 2U,
         "Expected plural provider resolution to preserve both HasAnyFlags matches"
     );
 
     static_assert(
-        RadioComposition::ProviderCountSatisfying<NoLowEnergyRequirement> == 1U,
+        RadioComposition::MatchCount<NoLowEnergyRequirement> == 1U,
         "Expected HasNoFlags to reject LowEnergy and missing-Property providers"
     );
 
     static_assert(
         std::is_same_v<
-            RadioComposition::ProviderSatisfying<NoLowEnergyRequirement>,
+            RadioComposition::Select<NoLowEnergyRequirement, Framework::SelectUnique>,
             TimestampedRadioProvider
         >,
         "Expected HasNoFlags provider resolution to select the non-low-energy qualified provider"
     );
 
     static_assert(
-        RadioComposition::ProviderCountSatisfying<ExactFeatureStorageRequirement> == 1U,
+        RadioComposition::MatchCount<ExactFeatureStorageRequirement> == 1U,
         "Expected existing Equals constraints to remain compatible with FlagProperty storage"
     );
 

@@ -1,5 +1,7 @@
 # EDP-System Dependency Graph
 
+> Revalidated: 2026-09-23 — Composition Framework enhancement migration plus the validated PIOArduino Core v6.2.0 / platform-espressif32 55.03.312-1 demo-toolchain baseline change compile/build metadata only; no ESPressio-library dependency edge changed.
+
 > Revalidated: 2026-09-22 — plural provider references use only the C++20 standard library plus existing local Composition types. They introduce no mandatory or optional ESPressio-library dependency. Existing Composition, Identity, FlagSet, and C++20 toolchain facilities remain dependency-neutral.
 
 ## Library Dependency Tree

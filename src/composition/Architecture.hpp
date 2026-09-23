@@ -67,51 +67,826 @@ namespace ESPressio::System::CompositionFramework {
         > {};
 
 
-        /// Counts providers satisfying one Need within a Composition only when the Need belongs to that Composition domain.
+        /// Concatenates every provider list represented by one Architecture.
+        ///
+        /// @tparam TCompositions Domain Compositions whose providers are being flattened.
+        template<class... TCompositions>
+        struct ArchitectureProviderTypes;
+
+
+        /// Empty Architecture provider population.
+        template<>
+        struct ArchitectureProviderTypes<> {
+
+            /// Empty provider list.
+            using Type = ProviderList<>;
+
+        };
+
+
+        /// Concatenates one Composition's providers with the remaining Architecture providers.
+        ///
+        /// @tparam TFirstComposition First Composition in declaration order.
+        /// @tparam TRestCompositions Remaining Compositions.
+        template<class TFirstComposition, class... TRestCompositions>
+        struct ArchitectureProviderTypes<
+            TFirstComposition,
+            TRestCompositions...
+        > {
+
+            private:
+
+                /// Flattened provider list from the remaining Compositions.
+                using Remaining = typename ArchitectureProviderTypes<
+                    TRestCompositions...
+                >::Type;
+
+
+            public:
+
+                /// Complete provider list preserving Composition and provider declaration order.
+                using Type = ProviderListConcat<
+                    typename TFirstComposition::ProviderTypes,
+                    Remaining
+                >;
+
+        };
+
+
+        /// Evaluates one consolidated Contract clause across a complete Architecture provider population.
+        ///
+        /// @tparam TClause Contract clause being evaluated.
+        /// @tparam TProviderList Complete Architecture provider population.
+        template<class TClause, class TProviderList>
+        struct ContractClauseSatisfiedInArchitecture : std::true_type {};
+
+
+        /// Evaluates one direct consolidated Requirement across an Architecture.
+        ///
+        /// @tparam TProviderList Complete Architecture provider population.
+        /// @tparam TCapability Requested Capability.
+        /// @tparam TScope Requirement scope.
+        /// @tparam TCardinality Accepted satisfying-provider count.
+        /// @tparam TConstraints Requirement qualification constraints.
         template<
-            class TNeed,
-            class TComposition,
-            bool TDomainMatches = std::is_same_v<typename TNeed::CompositionDomain, typename TComposition::CompositionDomain>
+            class TProviderList,
+            class TCapability,
+            RequirementScope TScope,
+            class TCardinality,
+            class... TConstraints
         >
-        struct SatisfyingProviderCountInComposition : std::integral_constant<std::size_t, 0U> {};
-
-
-        /// Returns the satisfying-provider count when the Need belongs to the inspected Composition domain.
-        template<class TNeed, class TComposition>
-        struct SatisfyingProviderCountInComposition<TNeed, TComposition, true> : std::integral_constant<
-            std::size_t,
-            TComposition::template ProviderCountSatisfying<TNeed>
+        struct ContractClauseSatisfiedInArchitecture<
+            Requirement<
+                TCapability,
+                TScope,
+                TCardinality,
+                TConstraints...
+            >,
+            TProviderList
+        > : RequirementCardinalitySatisfied<
+            Requirement<
+                TCapability,
+                TScope,
+                TCardinality,
+                TConstraints...
+            >,
+            SatisfyingProviderCountInList<
+                Requirement<
+                    TCapability,
+                    TScope,
+                    TCardinality,
+                    TConstraints...
+                >,
+                TProviderList
+            >::value
         > {};
 
 
-        /// Counts providers satisfying one Need across every Composition participating in an Architecture.
-        template<class TNeed, class... TCompositions>
-        inline constexpr std::size_t ArchitectureSatisfyingProviderCountV =
-            (std::size_t{0U} + ... + SatisfyingProviderCountInComposition<TNeed, TCompositions>::value);
-
-
-        /// Determines whether every Need in one DependsOn declaration is satisfied across an Architecture.
-        template<class TDependsOn, class... TCompositions>
-        struct DependenciesSatisfied;
-
-
-        /// Evaluates every cross-domain Need contained in one DependsOn declaration.
-        template<class... TNeeds, class... TCompositions>
-        struct DependenciesSatisfied<DependsOn<TNeeds...>, TCompositions...> : std::bool_constant<
-            ((ArchitectureSatisfyingProviderCountV<TNeeds, TCompositions...> > 0U) && ...)
+        /// Evaluates one SameProvider relationship across an Architecture.
+        ///
+        /// @tparam TProviderList Complete Architecture provider population.
+        /// @tparam TRequirements Requirements requiring one joint provider.
+        template<class TProviderList, class... TRequirements>
+        struct ContractClauseSatisfiedInArchitecture<
+            SameProvider<TRequirements...>,
+            TProviderList
+        > : std::bool_constant<
+            (
+                JointlySatisfyingProviderCount<
+                    RequirementList<TRequirements...>,
+                    TProviderList
+                >::value > 0U
+            )
         > {};
 
 
-        /// Determines whether every provider in one ProviderList has its cross-domain dependencies satisfied.
-        template<class TProviderList, class... TCompositions>
-        struct ProviderListDependenciesSatisfied;
-
-
-        /// Evaluates each provider's cross-domain dependency declaration against the complete Architecture.
-        template<class... TProviders, class... TCompositions>
-        struct ProviderListDependenciesSatisfied<ProviderList<TProviders...>, TCompositions...> : std::bool_constant<
-            (DependenciesSatisfied<typename TProviders::CompositionDependencies, TCompositions...>::value && ...)
+        /// Evaluates one DistinctProviders relationship across an Architecture.
+        ///
+        /// @tparam TProviderList Complete Architecture provider population.
+        /// @tparam TRequirements Requirements requiring distinct providers.
+        template<class TProviderList, class... TRequirements>
+        struct ContractClauseSatisfiedInArchitecture<
+            DistinctProviders<TRequirements...>,
+            TProviderList
+        > : DistinctAssignmentExists<
+            RequirementList<TRequirements...>,
+            TProviderList
         > {};
+
+
+        /// Requires one unambiguous initialization predecessor across the Architecture.
+        ///
+        /// @tparam TProviderList Complete Architecture provider population.
+        /// @tparam TRequirement Lifecycle predecessor Requirement.
+        template<class TProviderList, class TRequirement>
+        struct ContractClauseSatisfiedInArchitecture<
+            InitializesAfter<TRequirement>,
+            TProviderList
+        > : std::bool_constant<
+            SatisfyingProviderCountInList<
+                TRequirement,
+                TProviderList
+            >::value == 1U
+        > {};
+
+
+        /// Requires one unambiguous shutdown successor across the Architecture.
+        ///
+        /// @tparam TProviderList Complete Architecture provider population.
+        /// @tparam TRequirement Lifecycle successor Requirement.
+        template<class TProviderList, class TRequirement>
+        struct ContractClauseSatisfiedInArchitecture<
+            ShutsDownBefore<TRequirement>,
+            TProviderList
+        > : std::bool_constant<
+            SatisfyingProviderCountInList<
+                TRequirement,
+                TProviderList
+            >::value == 1U
+        > {};
+
+
+        /// Evaluates one consolidated Contract across an Architecture.
+        ///
+        /// @tparam TContract Contract.
+        /// @tparam TProviderList Complete Architecture provider population.
+        template<class TContract, class TProviderList>
+        struct ContractSatisfiedInArchitecture : std::true_type {};
+
+
+        /// Evaluates every clause in one concrete Contract.
+        ///
+        /// @tparam TProviderList Complete Architecture provider population.
+        /// @tparam TClauses Contract clauses being evaluated.
+        template<class TProviderList, class... TClauses>
+        struct ContractSatisfiedInArchitecture<
+            Contract<TClauses...>,
+            TProviderList
+        > : std::bool_constant<
+            (
+                ContractClauseSatisfiedInArchitecture<
+                    TClauses,
+                    TProviderList
+                >::value &&
+                ...
+            )
+        > {};
+
+
+        /// Resolves whether one lifecycle Requirement selects exactly one provider other than its owner.
+        ///
+        /// @tparam TOwnerProvider Provider owning the lifecycle clause.
+        /// @tparam TRequirement Lifecycle target Requirement.
+        /// @tparam TProviderList Complete Architecture provider population.
+        template<
+            class TOwnerProvider,
+            class TRequirement,
+            class TProviderList
+        >
+        struct LifecycleRequirementTargetsOtherProvider;
+
+
+        /// Evaluates one lifecycle target against a concrete provider population.
+        ///
+        /// @tparam TOwnerProvider Provider owning the lifecycle clause.
+        /// @tparam TRequirement Lifecycle target Requirement.
+        /// @tparam TProviders Architecture provider Types.
+        template<
+            class TOwnerProvider,
+            class TRequirement,
+            class... TProviders
+        >
+        struct LifecycleRequirementTargetsOtherProvider<
+            TOwnerProvider,
+            TRequirement,
+            ProviderList<TProviders...>
+        > {
+
+            private:
+
+                /// Number of providers satisfying the lifecycle target Requirement.
+                static constexpr std::size_t MatchCount =
+                    SatisfyingProviderCountV<
+                        TRequirement,
+                        TProviders...
+                    >;
+
+                /// First satisfying provider Type, used only after count validation.
+                using TargetProvider = typename FirstSatisfyingProvider<
+                    TRequirement,
+                    TProviders...
+                >::Type;
+
+
+            public:
+
+                /// Indicates whether the lifecycle target is unique and not the owning provider itself.
+                static constexpr bool IsValid =
+                    MatchCount == 1U &&
+                    !std::is_same_v<
+                        TOwnerProvider,
+                        TargetProvider
+                    >;
+
+        };
+
+
+        /// Evaluates one owner-aware provider Contract clause across an Architecture.
+        ///
+        /// @tparam TOwnerProvider Provider owning the Contract.
+        /// @tparam TClause Contract clause being evaluated.
+        /// @tparam TProviderList Complete Architecture provider population.
+        template<
+            class TOwnerProvider,
+            class TClause,
+            class TProviderList
+        >
+        struct ProviderContractClauseSatisfiedInArchitecture :
+            ContractClauseSatisfiedInArchitecture<
+                TClause,
+                TProviderList
+            > {};
+
+
+        /// Rejects ambiguous or self-referential initialization lifecycle targets.
+        ///
+        /// @tparam TOwnerProvider Provider owning the lifecycle clause.
+        /// @tparam TRequirement Initialization predecessor Requirement.
+        /// @tparam TProviderList Complete Architecture provider population.
+        template<
+            class TOwnerProvider,
+            class TRequirement,
+            class TProviderList
+        >
+        struct ProviderContractClauseSatisfiedInArchitecture<
+            TOwnerProvider,
+            InitializesAfter<TRequirement>,
+            TProviderList
+        > : std::bool_constant<
+            LifecycleRequirementTargetsOtherProvider<
+                TOwnerProvider,
+                TRequirement,
+                TProviderList
+            >::IsValid
+        > {};
+
+
+        /// Rejects ambiguous or self-referential shutdown lifecycle targets.
+        ///
+        /// @tparam TOwnerProvider Provider owning the lifecycle clause.
+        /// @tparam TRequirement Shutdown successor Requirement.
+        /// @tparam TProviderList Complete Architecture provider population.
+        template<
+            class TOwnerProvider,
+            class TRequirement,
+            class TProviderList
+        >
+        struct ProviderContractClauseSatisfiedInArchitecture<
+            TOwnerProvider,
+            ShutsDownBefore<TRequirement>,
+            TProviderList
+        > : std::bool_constant<
+            LifecycleRequirementTargetsOtherProvider<
+                TOwnerProvider,
+                TRequirement,
+                TProviderList
+            >::IsValid
+        > {};
+
+
+        /// Evaluates one provider-owned consolidated Contract across an Architecture.
+        ///
+        /// @tparam TOwnerProvider Provider owning the Contract.
+        /// @tparam TContract Contract.
+        /// @tparam TProviderList Complete Architecture provider population.
+        template<
+            class TOwnerProvider,
+            class TContract,
+            class TProviderList
+        >
+        struct ProviderContractSatisfiedInArchitecture : std::true_type {};
+
+
+        /// Evaluates every provider-owned clause in one concrete Contract.
+        ///
+        /// @tparam TOwnerProvider Provider owning the Contract.
+        /// @tparam TProviderList Complete Architecture provider population.
+        /// @tparam TClauses Contract clauses being evaluated.
+        template<
+            class TOwnerProvider,
+            class TProviderList,
+            class... TClauses
+        >
+        struct ProviderContractSatisfiedInArchitecture<
+            TOwnerProvider,
+            Contract<TClauses...>,
+            TProviderList
+        > : std::bool_constant<
+            (
+                ProviderContractClauseSatisfiedInArchitecture<
+                    TOwnerProvider,
+                    TClauses,
+                    TProviderList
+                >::value &&
+                ...
+            )
+        > {};
+
+
+        /// Evaluates every provider Contract represented by one ProviderList.
+        ///
+        /// @tparam TProviderList Providers whose Contracts are being validated.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        template<class TProviderList, class TArchitectureProviders>
+        struct ProviderListContractsSatisfied;
+
+
+        /// Evaluates every concrete provider Contract.
+        ///
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TProviders Providers whose Contracts are being validated.
+        template<class TArchitectureProviders, class... TProviders>
+        struct ProviderListContractsSatisfied<
+            ProviderList<TProviders...>,
+            TArchitectureProviders
+        > : std::bool_constant<
+            (
+                ProviderContractSatisfiedInArchitecture<
+                    TProviders,
+                    typename TProviders::CompositionContract,
+                    TArchitectureProviders
+                >::value &&
+                ...
+            )
+        > {};
+
+
+        /// Indicates whether one lifecycle clause creates an ordering edge between two providers.
+        ///
+        /// @tparam TClause Contract clause being inspected.
+        /// @tparam TBefore Provider Type proposed before the other provider.
+        /// @tparam TAfter Provider Type proposed after the other provider.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        template<
+            class TClause,
+            class TBefore,
+            class TAfter,
+            class TArchitectureProviders,
+            bool TInitializationOrder
+        >
+        struct LifecycleClauseCreatesEdge : std::false_type {};
+
+
+        /// Creates an initialization edge from the uniquely selected predecessor to the owning provider.
+        ///
+        /// @tparam TBefore Candidate predecessor provider Type.
+        /// @tparam TAfter Provider Type owning the InitializesAfter clause.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TRequirement Requirement selecting the predecessor.
+        template<
+            class TBefore,
+            class TAfter,
+            class TArchitectureProviders,
+            class TRequirement
+        >
+        struct LifecycleClauseCreatesEdge<
+            InitializesAfter<TRequirement>,
+            TBefore,
+            TAfter,
+            TArchitectureProviders,
+            true
+        > : std::bool_constant<
+            ProviderSatisfiesRequirement<
+                TBefore,
+                TRequirement
+            >::value
+        > {};
+
+
+        /// Creates a shutdown edge from the owning provider to the uniquely selected successor.
+        ///
+        /// @tparam TBefore Provider Type owning the ShutsDownBefore clause.
+        /// @tparam TAfter Candidate shutdown successor provider Type.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TRequirement Requirement selecting the successor.
+        template<
+            class TBefore,
+            class TAfter,
+            class TArchitectureProviders,
+            class TRequirement
+        >
+        struct LifecycleClauseCreatesEdge<
+            ShutsDownBefore<TRequirement>,
+            TBefore,
+            TAfter,
+            TArchitectureProviders,
+            false
+        > : std::bool_constant<
+            ProviderSatisfiesRequirement<
+                TAfter,
+                TRequirement
+            >::value
+        > {};
+
+
+        /// Indicates whether one Contract establishes an ordering edge between two providers.
+        ///
+        /// @tparam TContract Contract being inspected.
+        /// @tparam TBefore Provider Type proposed before the other provider.
+        /// @tparam TAfter Provider Type proposed after the other provider.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        template<
+            class TContract,
+            class TBefore,
+            class TAfter,
+            class TArchitectureProviders,
+            bool TInitializationOrder
+        >
+        struct ContractCreatesLifecycleEdge : std::false_type {};
+
+
+        /// Evaluates every lifecycle clause in one consolidated Contract.
+        ///
+        /// @tparam TBefore Provider Type proposed before the other provider.
+        /// @tparam TAfter Provider Type proposed after the other provider.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        /// @tparam TClauses Contract clauses being inspected.
+        template<
+            class TBefore,
+            class TAfter,
+            class TArchitectureProviders,
+            bool TInitializationOrder,
+            class... TClauses
+        >
+        struct ContractCreatesLifecycleEdge<
+            Contract<TClauses...>,
+            TBefore,
+            TAfter,
+            TArchitectureProviders,
+            TInitializationOrder
+        > : std::bool_constant<
+            (
+                LifecycleClauseCreatesEdge<
+                    TClauses,
+                    TBefore,
+                    TAfter,
+                    TArchitectureProviders,
+                    TInitializationOrder
+                >::value ||
+                ...
+            )
+        > {};
+
+
+        /// Indicates whether one directed lifecycle edge exists between two providers.
+        ///
+        /// Initialization edges are declared by the after-provider's Contract.
+        /// Shutdown edges are declared by the before-provider's Contract.
+        ///
+        /// @tparam TBefore Provider Type proposed before the other provider.
+        /// @tparam TAfter Provider Type proposed after the other provider.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        template<
+            class TBefore,
+            class TAfter,
+            class TArchitectureProviders,
+            bool TInitializationOrder
+        >
+        inline constexpr bool LifecycleEdgeV = []() consteval {
+            if constexpr (std::is_same_v<TBefore, TAfter>) {
+                return false;
+            } else if constexpr (TInitializationOrder) {
+                return ContractCreatesLifecycleEdge<
+                    typename TAfter::CompositionContract,
+                    TBefore,
+                    TAfter,
+                    TArchitectureProviders,
+                    true
+                >::value;
+            } else {
+                return ContractCreatesLifecycleEdge<
+                    typename TBefore::CompositionContract,
+                    TBefore,
+                    TAfter,
+                    TArchitectureProviders,
+                    false
+                >::value;
+            }
+        }();
+
+
+        /// Indicates whether one provider has any incoming lifecycle edge from the remaining provider set.
+        ///
+        /// @tparam TCandidate Provider Type being tested for readiness.
+        /// @tparam TRemainingProviders Remaining providers in the topological sort.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        template<
+            class TCandidate,
+            class TRemainingProviders,
+            class TArchitectureProviders,
+            bool TInitializationOrder
+        >
+        struct HasIncomingLifecycleEdge;
+
+
+        /// Evaluates incoming edges from one concrete remaining provider pack.
+        ///
+        /// @tparam TCandidate Provider Type being tested for readiness.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        /// @tparam TProviders Remaining provider Types.
+        template<
+            class TCandidate,
+            class TArchitectureProviders,
+            bool TInitializationOrder,
+            class... TProviders
+        >
+        struct HasIncomingLifecycleEdge<
+            TCandidate,
+            ProviderList<TProviders...>,
+            TArchitectureProviders,
+            TInitializationOrder
+        > : std::bool_constant<
+            (
+                LifecycleEdgeV<
+                    TProviders,
+                    TCandidate,
+                    TArchitectureProviders,
+                    TInitializationOrder
+                > ||
+                ...
+            )
+        > {};
+
+
+        /// Finds the first declaration-order provider with no incoming lifecycle edge from the complete remaining set.
+        ///
+        /// @tparam TCandidates Candidate providers still being inspected for readiness.
+        /// @tparam TRemainingProviders Complete remaining provider set used for incoming-edge checks.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        template<
+            class TCandidates,
+            class TRemainingProviders,
+            class TArchitectureProviders,
+            bool TInitializationOrder
+        >
+        struct FindLifecycleReadyProvider;
+
+
+        /// No provider can be selected after all candidates are exhausted.
+        ///
+        /// @tparam TRemainingProviders Complete remaining provider set.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        template<
+            class TRemainingProviders,
+            class TArchitectureProviders,
+            bool TInitializationOrder
+        >
+        struct FindLifecycleReadyProvider<
+            ProviderList<>,
+            TRemainingProviders,
+            TArchitectureProviders,
+            TInitializationOrder
+        > {
+
+            /// Empty-selection sentinel indicating a lifecycle cycle.
+            using Type = void;
+
+        };
+
+
+        /// Selects the first candidate having no incoming edge from any provider still remaining.
+        ///
+        /// @tparam TRemainingProviders Complete remaining provider set.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        /// @tparam TFirstProvider Current candidate provider Type.
+        /// @tparam TRestProviders Remaining candidate provider Types.
+        template<
+            class TRemainingProviders,
+            class TArchitectureProviders,
+            bool TInitializationOrder,
+            class TFirstProvider,
+            class... TRestProviders
+        >
+        struct FindLifecycleReadyProvider<
+            ProviderList<
+                TFirstProvider,
+                TRestProviders...
+            >,
+            TRemainingProviders,
+            TArchitectureProviders,
+            TInitializationOrder
+        > {
+
+            /// First ready provider Type, or the result of inspecting the remaining candidates.
+            using Type = std::conditional_t<
+                !HasIncomingLifecycleEdge<
+                    TFirstProvider,
+                    TRemainingProviders,
+                    TArchitectureProviders,
+                    TInitializationOrder
+                >::value,
+                TFirstProvider,
+                typename FindLifecycleReadyProvider<
+                    ProviderList<TRestProviders...>,
+                    TRemainingProviders,
+                    TArchitectureProviders,
+                    TInitializationOrder
+                >::Type
+            >;
+
+        };
+
+
+        /// Builds one deterministic lifecycle provider ordering.
+        ///
+        /// @tparam TOrderedProviders Providers already placed in lifecycle order.
+        /// @tparam TRemainingProviders Providers still requiring placement.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        template<
+            class TOrderedProviders,
+            class TRemainingProviders,
+            class TArchitectureProviders,
+            bool TInitializationOrder
+        >
+        struct BuildLifecycleOrder;
+
+
+        /// Completes lifecycle ordering when no providers remain.
+        ///
+        /// @tparam TOrderedProviders Complete provider order.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        template<
+            class TOrderedProviders,
+            class TArchitectureProviders,
+            bool TInitializationOrder
+        >
+        struct BuildLifecycleOrder<
+            TOrderedProviders,
+            ProviderList<>,
+            TArchitectureProviders,
+            TInitializationOrder
+        > {
+
+            /// Completed lifecycle order.
+            using Type = TOrderedProviders;
+
+        };
+
+
+        /// Continues lifecycle ordering after selecting one ready provider.
+        ///
+        /// @tparam TOrderedProviders Providers already placed in lifecycle order.
+        /// @tparam TRemainingProviders Providers still requiring placement.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        /// @tparam TReadyProvider Selected ready provider Type.
+        template<
+            class TOrderedProviders,
+            class TRemainingProviders,
+            class TArchitectureProviders,
+            bool TInitializationOrder,
+            class TReadyProvider
+        >
+        struct ContinueLifecycleOrder {
+
+            /// Remaining provider set after consuming the ready provider.
+            using NextRemaining = typename RemoveProviderFromList<
+                TReadyProvider,
+                TRemainingProviders
+            >::Type;
+
+            /// Ordered provider set after appending the ready provider.
+            using NextOrdered = typename AppendProviderList<
+                TOrderedProviders,
+                TReadyProvider
+            >::Type;
+
+            /// Completed deterministic lifecycle order.
+            using Type = typename BuildLifecycleOrder<
+                NextOrdered,
+                NextRemaining,
+                TArchitectureProviders,
+                TInitializationOrder
+            >::Type;
+
+        };
+
+
+        /// Rejects a lifecycle dependency cycle when no remaining provider is ready.
+        ///
+        /// @tparam TOrderedProviders Providers placed before the cycle was detected.
+        /// @tparam TRemainingProviders Providers participating in the unresolved cycle.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        template<
+            class TOrderedProviders,
+            class TRemainingProviders,
+            class TArchitectureProviders,
+            bool TInitializationOrder
+        >
+        struct ContinueLifecycleOrder<
+            TOrderedProviders,
+            TRemainingProviders,
+            TArchitectureProviders,
+            TInitializationOrder,
+            void
+        > {
+
+            static_assert(
+                TRemainingProviders::IsEmpty,
+                "Composition lifecycle ordering contains a dependency cycle"
+            );
+
+            /// Unreachable fallback Type retained only to terminate template substitution after the diagnostic.
+            using Type = TOrderedProviders;
+
+        };
+
+
+        /// Selects one ready provider and continues deterministic lifecycle ordering.
+        ///
+        /// @tparam TOrderedProviders Providers already placed in lifecycle order.
+        /// @tparam TFirstProvider First remaining provider Type.
+        /// @tparam TRestProviders Remaining provider Types.
+        /// @tparam TArchitectureProviders Complete Architecture provider population.
+        /// @tparam TInitializationOrder Whether initialization ordering is being derived.
+        template<
+            class TOrderedProviders,
+            class TArchitectureProviders,
+            bool TInitializationOrder,
+            class TFirstProvider,
+            class... TRestProviders
+        >
+        struct BuildLifecycleOrder<
+            TOrderedProviders,
+            ProviderList<
+                TFirstProvider,
+                TRestProviders...
+            >,
+            TArchitectureProviders,
+            TInitializationOrder
+        > {
+
+            private:
+
+                /// Complete remaining provider list.
+                using RemainingProviders = ProviderList<
+                    TFirstProvider,
+                    TRestProviders...
+                >;
+
+                /// First provider ready under the requested lifecycle relation.
+                using ReadyProvider = typename FindLifecycleReadyProvider<
+                    RemainingProviders,
+                    RemainingProviders,
+                    TArchitectureProviders,
+                    TInitializationOrder
+                >::Type;
+
+
+            public:
+
+                /// Completed deterministic lifecycle order.
+                using Type = typename ContinueLifecycleOrder<
+                    TOrderedProviders,
+                    RemainingProviders,
+                    TArchitectureProviders,
+                    TInitializationOrder,
+                    ReadyProvider
+                >::Type;
+
+        };
 
 
         /// Counts Compositions representing one requested Domain.
@@ -180,16 +955,40 @@ namespace ESPressio::System::CompositionFramework {
 
         // Architecture validation.
 
-        /// Indicates whether every provider's cross-domain dependencies are satisfied by participating Compositions.
-        static constexpr bool AllDependenciesSatisfied =
-            (Detail::ProviderListDependenciesSatisfied<
-                typename TCompositions::ProviderTypes,
-                TCompositions...
-            >::value && ...);
+        /// Complete deterministic provider population across all participating Compositions.
+        using ProviderTypes = typename Detail::ArchitectureProviderTypes<
+            TCompositions...
+        >::Type;
+
+        /// Deterministic provider initialization order derived only from explicit InitializesAfter clauses.
+        using InitializationOrder = typename Detail::BuildLifecycleOrder<
+            ProviderList<>,
+            ProviderTypes,
+            ProviderTypes,
+            true
+        >::Type;
+
+        /// Deterministic provider shutdown order derived only from explicit ShutsDownBefore clauses.
+        using ShutdownOrder = typename Detail::BuildLifecycleOrder<
+            ProviderList<>,
+            ProviderTypes,
+            ProviderTypes,
+            false
+        >::Type;
+
+        /// Indicates whether every provider Contract is satisfied across the complete Architecture.
+        static constexpr bool AllContractsSatisfied =
+            (
+                Detail::ProviderListContractsSatisfied<
+                    typename TCompositions::ProviderTypes,
+                    ProviderTypes
+                >::value &&
+                ...
+            );
 
         static_assert(
-            AllDependenciesSatisfied,
-            "Architecture contains an unsatisfied cross-domain provider dependency"
+            AllContractsSatisfied,
+            "Architecture contains an unsatisfied provider Contract"
         );
 
         // Architecture metadata.
@@ -200,8 +999,9 @@ namespace ESPressio::System::CompositionFramework {
         /// Number of Domain Compositions participating in this Architecture.
         static constexpr std::size_t CompositionCount = sizeof...(TCompositions);
 
-        /// Indicates that all participating Compositions and cross-domain dependencies are valid.
-        static constexpr bool IsValid = AllDependenciesSatisfied;
+        /// Indicates that all participating Compositions and provider Contracts are valid.
+        static constexpr bool IsValid =
+            AllContractsSatisfied;
 
         // Domain queries.
 
@@ -231,24 +1031,147 @@ namespace ESPressio::System::CompositionFramework {
         template<class TDomain>
         using CompositionFor = typename ResolveComposition<TDomain>::Type;
 
-        // Cross-domain qualified provider queries.
+        // Requirement queries.
 
-        /// Returns the number of providers satisfying one Need across the complete Architecture.
-        template<class TNeed>
-        static constexpr std::size_t ProviderCountSatisfying =
-            Detail::ArchitectureSatisfyingProviderCountV<TNeed, TCompositions...>;
+        /// Validates one Requirement before Architecture-wide provider matching is attempted.
+        template<class TRequirement>
+        struct ValidateRequirement {
 
-        /// Indicates whether at least one provider satisfies one Need across the complete Architecture.
-        template<class TNeed>
-        static constexpr bool HasProviderSatisfying = ProviderCountSatisfying<TNeed> > 0U;
+            static_assert(
+                Detail::RequirementTraits<TRequirement>::IsValid,
+                "Architecture provider queries require a consolidated Requirement"
+            );
 
-        /// Returns every provider satisfying one Need from the Composition owning that Need's Domain.
-        template<class TNeed>
-        using ProvidersSatisfying = typename CompositionFor<typename TNeed::CompositionDomain>::template ProvidersSatisfying<TNeed>;
+            static_assert(
+                Detail::CompositionCountForDomainV<
+                    typename TRequirement::CompositionDomain,
+                    TCompositions...
+                > == 1U,
+                "Architecture Requirement Capability Domain is not represented exactly once"
+            );
 
-        /// Returns the unique provider satisfying one Need from the Composition owning that Need's Domain.
-        template<class TNeed>
-        using ProviderSatisfying = typename CompositionFor<typename TNeed::CompositionDomain>::template ProviderSatisfying<TNeed>;
+            /// Indicates that the Requirement is valid for this Architecture.
+            static constexpr bool IsValid = true;
+
+        };
+
+
+        /// Returns every provider matching one Requirement qualification.
+        ///
+        /// Matching is delegated to the Composition owning the Requirement Capability Domain.
+        ///
+        /// @tparam TRequirement Requirement being queried.
+        template<class TRequirement>
+        using Matches = std::conditional_t<
+            ValidateRequirement<TRequirement>::IsValid,
+            typename CompositionFor<
+                typename TRequirement::CompositionDomain
+            >::template Matches<TRequirement>,
+            ProviderList<>
+        >;
+
+        /// Returns the number of providers matching one Requirement qualification.
+        ///
+        /// @tparam TRequirement Requirement being queried.
+        template<class TRequirement>
+        static constexpr std::size_t MatchCount =
+            Matches<TRequirement>::Count;
+
+        /// Indicates whether at least one provider matches one Requirement qualification.
+        ///
+        /// @tparam TRequirement Requirement being queried.
+        template<class TRequirement>
+        static constexpr bool HasMatch =
+            MatchCount<TRequirement> > 0U;
+
+        /// Indicates whether the Architecture provider population obeys one Requirement's cardinality.
+        ///
+        /// @tparam TRequirement Requirement being validated.
+        template<class TRequirement>
+        static constexpr bool SatisfiesRequirement =
+            Detail::RequirementCardinalitySatisfied<
+                TRequirement,
+                MatchCount<TRequirement>
+            >::value;
+
+        /// Resolves Requirement matches using one explicit selection policy.
+        ///
+        /// @tparam TRequirement Requirement whose matching providers are being selected.
+        /// @tparam TSelectionPolicy Explicit provider selection policy.
+        template<
+            class TRequirement,
+            class TSelectionPolicy = SelectUnique
+        >
+        using Select = typename Detail::SelectionResult<
+            TRequirement,
+            TSelectionPolicy,
+            Matches<TRequirement>
+        >::Type;
+
+
+        // Joint provider queries.
+
+        /// Returns providers jointly satisfying every supplied Requirement across the complete Architecture.
+        ///
+        /// @tparam TRequirements Requirements which must all be satisfied by the same provider Type.
+        template<class... TRequirements>
+        using JointMatches = typename Detail::FilterJointlySatisfyingProviders<
+            Detail::RequirementList<TRequirements...>,
+            ProviderList<>,
+            ProviderTypes
+        >::Type;
+
+        /// Returns the number of providers jointly satisfying every supplied Requirement.
+        ///
+        /// @tparam TRequirements Requirements being jointly evaluated.
+        template<class... TRequirements>
+        static constexpr std::size_t JointMatchCount =
+            JointMatches<TRequirements...>::Count;
+
+        /// Resolves providers jointly satisfying every supplied Requirement using one explicit selection policy.
+        ///
+        /// @tparam TSelectionPolicy Explicit provider selection policy.
+        /// @tparam TRequirements Requirements which must all be satisfied by the same provider Type.
+        template<class TSelectionPolicy, class... TRequirements>
+        using SelectJoint = typename Detail::ProviderListSelectionResult<
+            TSelectionPolicy,
+            JointMatches<TRequirements...>
+        >::Type;
+
+
+        // Consumer Contract validation.
+
+        /// Indicates whether the complete Architecture satisfies one reusable consumer Contract.
+        ///
+        /// @tparam TContract Consolidated consumer Contract.
+        template<class TContract>
+        static constexpr bool SatisfiesContract =
+            Detail::ContractTraits<TContract>::IsValid &&
+            Detail::ContractSatisfiedInArchitecture<
+                TContract,
+                ProviderTypes
+            >::value;
+
+        /// Performs strict compile-time validation of one consumer Contract.
+        ///
+        /// @tparam TContract Consolidated consumer Contract.
+        template<class TContract>
+        struct ValidateContract {
+
+            static_assert(
+                Detail::ContractTraits<TContract>::IsValid,
+                "Architecture::ValidateContract requires a consolidated Contract"
+            );
+
+            static_assert(
+                SatisfiesContract<TContract>,
+                "Architecture does not satisfy the requested consumer Contract"
+            );
+
+            /// Indicates successful consumer Contract validation.
+            static constexpr bool IsValid = true;
+
+        };
 
     };
 

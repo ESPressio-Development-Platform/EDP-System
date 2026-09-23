@@ -35,7 +35,7 @@ namespace ESPressio::System::Tests::ProviderReferences {
     /// First Radio provider satisfying the Broadcast requirement.
     class TimestampedRadio final : public Framework::Provider<
         RadioDomain,
-        Framework::Provides<
+        Framework::Offers<
             Framework::Offer<
                 Radio,
                 Framework::FlagPropertyValue<
@@ -75,7 +75,7 @@ namespace ESPressio::System::Tests::ProviderReferences {
     /// Second Radio provider satisfying the Broadcast requirement.
     class BasicBroadcastRadio final : public Framework::Provider<
         RadioDomain,
-        Framework::Provides<
+        Framework::Offers<
             Framework::Offer<
                 Radio,
                 Framework::FlagPropertyValue<
@@ -114,7 +114,7 @@ namespace ESPressio::System::Tests::ProviderReferences {
     /// Radio provider intentionally excluded from the Broadcast requirement.
     class LowEnergyOnlyRadio final : public Framework::Provider<
         RadioDomain,
-        Framework::Provides<
+        Framework::Offers<
             Framework::Offer<
                 Radio,
                 Framework::FlagPropertyValue<
@@ -151,8 +151,10 @@ namespace ESPressio::System::Tests::ProviderReferences {
 
 
     /// Requirement selecting every Radio provider which advertises Broadcast support.
-    using BroadcastRequirement = Framework::Need<
+    using BroadcastRequirement = Framework::Requirement<
         Radio,
+        Framework::RequirementScope::SameDomain,
+        Framework::AtLeastProviders<1U>,
         Framework::HasAllFlags<
             SupportedFeatures,
             RadioFeature::Broadcast
@@ -170,7 +172,7 @@ namespace ESPressio::System::Tests::ProviderReferences {
 
 
     /// Every provider type satisfying the Broadcast requirement.
-    using BroadcastProviderTypes = RadioComposition::ProvidersSatisfying<
+    using BroadcastProviderTypes = RadioComposition::Matches<
         BroadcastRequirement
     >;
 

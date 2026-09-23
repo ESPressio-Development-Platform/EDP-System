@@ -37,7 +37,7 @@ namespace Demo {
     /// Radio provider advertising broadcast and low-energy support.
     struct LowEnergyRadio final : Framework::Provider<
         RadioDomain,
-        Framework::Provides<
+        Framework::Offers<
             Framework::Offer<
                 Radio,
                 Framework::FlagPropertyValue<
@@ -53,7 +53,7 @@ namespace Demo {
     /// Radio provider advertising broadcast, acknowledgement, and receive-timestamp support.
     struct TimestampedRadio final : Framework::Provider<
         RadioDomain,
-        Framework::Provides<
+        Framework::Offers<
             Framework::Offer<
                 Radio,
                 Framework::FlagPropertyValue<
@@ -68,8 +68,10 @@ namespace Demo {
 
 
     /// Requirement selecting a Radio which supports both acknowledgements and receive timestamps.
-    using ReliableTimestampRequirement = Framework::Need<
+    using ReliableTimestampRequirement = Framework::Requirement<
         Radio,
+        Framework::RequirementScope::SameDomain,
+        Framework::ExactlyProviders<1U>,
         Framework::HasAllFlags<
             SupportedFeatures,
             RadioFeature::Acknowledgements,
@@ -79,8 +81,10 @@ namespace Demo {
 
 
     /// Requirement accepting either low-energy or receive-timestamp support.
-    using SpecializedRadioRequirement = Framework::Need<
+    using SpecializedRadioRequirement = Framework::Requirement<
         Radio,
+        Framework::RequirementScope::SameDomain,
+        Framework::AtLeastProviders<1U>,
         Framework::HasAnyFlags<
             SupportedFeatures,
             RadioFeature::LowEnergy,
@@ -90,8 +94,10 @@ namespace Demo {
 
 
     /// Requirement selecting providers which do not advertise low-energy operation.
-    using NonLowEnergyRequirement = Framework::Need<
+    using NonLowEnergyRequirement = Framework::Requirement<
         Radio,
+        Framework::RequirementScope::SameDomain,
+        Framework::ExactlyProviders<1U>,
         Framework::HasNoFlags<
             SupportedFeatures,
             RadioFeature::LowEnergy
@@ -108,8 +114,9 @@ namespace Demo {
 
 
     /// Provider selected entirely from typed compile-time flag requirements.
-    using ReliableTimestampRadio = RadioComposition::ProviderSatisfying<
-        ReliableTimestampRequirement
+    using ReliableTimestampRadio = RadioComposition::Select<
+        ReliableTimestampRequirement,
+        Framework::SelectUnique
     >;
 
 
@@ -127,12 +134,12 @@ namespace Demo {
     );
 
     static_assert(
-        RadioComposition::ProviderCountSatisfying<SpecializedRadioRequirement> == 2U,
+        RadioComposition::MatchCount<SpecializedRadioRequirement> == 2U,
         "HasAnyFlags must retain both specialised Radio providers"
     );
 
     static_assert(
-        RadioComposition::ProviderCountSatisfying<NonLowEnergyRequirement> == 1U,
+        RadioComposition::MatchCount<NonLowEnergyRequirement> == 1U,
         "HasNoFlags must retain only the non-low-energy provider"
     );
 

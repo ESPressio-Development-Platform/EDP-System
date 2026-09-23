@@ -36,7 +36,7 @@ namespace Demo {
     /// Broadcast-capable Radio provider which also supplies receive timestamps.
     class TimestampedRadio final : public Framework::Provider<
         RadioDomain,
-        Framework::Provides<
+        Framework::Offers<
             Framework::Offer<
                 Radio,
                 Framework::FlagPropertyValue<
@@ -76,7 +76,7 @@ namespace Demo {
     /// Second Broadcast-capable Radio provider.
     class BasicBroadcastRadio final : public Framework::Provider<
         RadioDomain,
-        Framework::Provides<
+        Framework::Offers<
             Framework::Offer<
                 Radio,
                 Framework::FlagPropertyValue<
@@ -115,7 +115,7 @@ namespace Demo {
     /// Radio provider which does not advertise Broadcast support.
     class LowEnergyOnlyRadio final : public Framework::Provider<
         RadioDomain,
-        Framework::Provides<
+        Framework::Offers<
             Framework::Offer<
                 Radio,
                 Framework::FlagPropertyValue<
@@ -147,8 +147,10 @@ namespace Demo {
 
 
     /// Requirement selecting every Radio provider which advertises Broadcast support.
-    using BroadcastRequirement = Framework::Need<
+    using BroadcastRequirement = Framework::Requirement<
         Radio,
+        Framework::RequirementScope::SameDomain,
+        Framework::AtLeastProviders<1U>,
         Framework::HasAllFlags<
             SupportedFeatures,
             RadioFeature::Broadcast
@@ -166,7 +168,7 @@ namespace Demo {
 
 
     /// Every provider type satisfying the Broadcast requirement.
-    using BroadcastProviderTypes = RadioComposition::ProvidersSatisfying<
+    using BroadcastProviderTypes = RadioComposition::Matches<
         BroadcastRequirement
     >;
 

@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <type_traits>
 
-#include "Requirement.hpp"
+#include "Contract.hpp"
 
 namespace ESPressio::System::CompositionFramework {
 
@@ -285,83 +285,87 @@ namespace ESPressio::System::CompositionFramework {
     } // ESPressio::System::CompositionFramework::Detail
 
 
-    /// Groups the capabilities supplied by a provider.
+    /// Groups the capability Offers supplied by one provider.
+    ///
+    /// @tparam TOffers Capability Offer declarations supplied by the provider.
     template<class... TOffers>
-    struct Provides {
+    struct Offers {
 
         static_assert(
             sizeof...(TOffers) > 0U,
-            "Provides must contain at least one Offer"
+            "Offers must contain at least one Offer"
         );
 
         static_assert(
             (Detail::OfferTraits<TOffers>::IsValid && ...),
-            "Provides entries must be Offer declarations"
+            "Offers entries must be Offer declarations"
         );
 
         static_assert(
             Detail::UniqueOffers<TOffers...>::value,
-            "Provides contains the same capability more than once"
+            "Offers contains the same capability more than once"
         );
 
         // Offer-set metadata.
 
-        /// Marker used to identify Provides declarations during compile-time inspection.
-        using ProvidesTag = void;
+        /// Marker used to identify Offers declarations during compile-time inspection.
+        using OffersTag = void;
 
-        /// Number of capability offers contained in this declaration.
+        /// Number of capability Offers contained in this declaration.
         static constexpr std::size_t Count = sizeof...(TOffers);
 
         // Domain inspection.
 
-        /// Indicates whether every offered capability belongs to the specified composition domain.
+        /// Indicates whether every offered capability belongs to the specified composition Domain.
         template<class TDomain>
-        static constexpr bool IsForDomain = (std::is_same_v<typename TOffers::CompositionDomain, TDomain> && ...);
+        static constexpr bool IsForDomain =
+            (std::is_same_v<typename TOffers::CompositionDomain, TDomain> && ...);
 
         // Capability queries.
 
         /// Indicates whether this declaration supplies the specified capability.
         template<class TCapability>
-        static constexpr bool Contains = (std::is_same_v<TCapability, typename TOffers::CapabilityType> || ...);
+        static constexpr bool Contains =
+            (std::is_same_v<TCapability, typename TOffers::CapabilityType> || ...);
 
-        /// Resolves one capability offer from this declaration.
+        /// Resolves one capability Offer from this declaration.
         template<class TCapability>
         struct ResolveOffer {
 
             static_assert(
                 Contains<TCapability>,
-                "Requested capability is not supplied by this Provides declaration"
+                "Requested capability is not supplied by this Offers declaration"
             );
-
-            // Resolution result.
 
             /// Offer declaration associated with the requested capability.
             using Type = typename Detail::FindOffer<TCapability, TOffers...>::Type;
 
         };
 
-
         /// Returns the complete Offer declaration associated with the specified capability.
         template<class TCapability>
         using OfferFor = typename ResolveOffer<TCapability>::Type;
 
-        /// Returns the compile-time property set advertised for the specified capability.
+        /// Returns the compile-time Property set advertised for the specified capability.
         template<class TCapability>
         using PropertiesFor = typename OfferFor<TCapability>::Properties;
 
-        /// Returns the open-ended compile-time Attribute set advertised for the specified capability.
+        /// Returns the open-ended Attribute set advertised for the specified capability.
         template<class TCapability>
         using AttributesFor = typename OfferFor<TCapability>::Attributes;
 
     };
 
 
-    /// Declares the compile-time capabilities supplied and required by one concrete provider type.
+    /// Declares the compile-time Offers and consumer Contract of one concrete provider Type.
+    ///
+    /// @tparam TDomain Domain owning this provider.
+    /// @tparam TOffers Capabilities and characteristics supplied by this provider.
+    /// @tparam TContract Consolidated consumer Contract of this provider.
     template<
         class TDomain,
-        class TProvides,
-        class TRequires = Requires<>,
-        class TDependsOn = DependsOn<>
+        class TOffers,
+        class TContract = Contract<>
     >
     struct Provider {
 
@@ -371,23 +375,18 @@ namespace ESPressio::System::CompositionFramework {
         );
 
         static_assert(
-            TProvides::template IsForDomain<TDomain>,
-            "Provider supplies a capability that belongs to another composition domain"
+            TOffers::template IsForDomain<TDomain>,
+            "Provider contains an Offer belonging to another composition Domain"
         );
 
         static_assert(
-            TRequires::template IsForDomain<TDomain>,
-            "Provider requires a same-domain capability that belongs to another composition domain"
+            Detail::ContractTraits<TContract>::IsValid,
+            "Provider requires a consolidated Contract declaration"
         );
 
         static_assert(
-            Detail::DependsOnTraits<TDependsOn>::IsValid,
-            "Provider cross-domain dependencies must use a DependsOn declaration"
-        );
-
-        static_assert(
-            TDependsOn::template IsExternalTo<TDomain>,
-            "Provider DependsOn entries must belong to another composition domain; use Requires for same-domain requirements"
+            TContract::template IsProviderContractFor<TDomain>,
+            "Provider Contract contains an invalid same-domain or external-domain Requirement"
         );
 
         // Provider metadata.
@@ -398,14 +397,11 @@ namespace ESPressio::System::CompositionFramework {
         /// Domain to which this provider belongs.
         using CompositionDomain = TDomain;
 
-        /// Capabilities supplied by this provider.
-        using CompositionCapabilities = TProvides;
+        /// Canonical Offer collection supplied by this provider.
+        using CompositionOffers = TOffers;
 
-        /// Same-domain capabilities required by this provider.
-        using CompositionRequirements = TRequires;
-
-        /// Cross-domain capabilities required by this provider.
-        using CompositionDependencies = TDependsOn;
+        /// Consolidated consumer Contract supplied by this provider.
+        using CompositionContract = TContract;
 
     };
 

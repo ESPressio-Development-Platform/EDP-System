@@ -2,498 +2,577 @@
 
 ## Purpose
 
-The Composition Framework supports applications in which more than one concrete provider legitimately supplies the same `SharedCapability`.
+Qualified Composition Resolution selects provider Types by **capability plus compile-time characteristics**, rather than by concrete implementation name.
 
-Capability identity alone is not always sufficient to choose the provider required by one consumer. Two Radio providers may both satisfy the same Radio capability while representing different physical modules, frequencies, roles, buses, positions, or other application-relevant qualities.
+The canonical flow is:
 
-Qualified Composition resolution allows providers to advertise open-ended compile-time **Attributes** and allows a `Need` to filter providers by those Attributes without naming concrete implementation types.
+```text
+Capability
+    + Requirement scope
+    + cardinality
+    + Property / FlagProperty / Attribute constraints
+    -> Matches
+    -> explicit Select policy
+```
 
-All selection remains in the C++ type system. The framework does not introduce a runtime provider registry, runtime descriptor lookup, allocation, string comparison, or object ownership.
+This supports interchangeable concrete providers without introducing runtime lookup or interface-based indirection.
 
----
-
-## Capability, Property, and Attribute
-
-The framework deliberately distinguishes three concepts.
+## Capability, Property and Attribute
 
 ### Capability
 
-A Capability describes **what a provider fundamentally does**.
+A Capability answers:
 
-Examples:
+> What architectural service does this provider supply?
 
-- System Clock;
-- Radio;
-- File Storage;
-- Key/Value Storage.
+For example:
 
-Capabilities remain the fundamental substitution boundary.
+```cpp
+struct Radio final :
+    Framework::SharedCapability<PlatformDomain> {};
+```
 
 ### Property
 
-A Property is a formal characteristic owned by a Capability contract.
+A Property is a named compile-time characteristic with a declared value Type:
 
-Properties are appropriate when a characteristic forms part of the capability's substitutability contract and should have one shared semantic definition.
+```cpp
+struct MaximumPayloadBytes final :
+    Framework::Property<Radio, std::uint16_t> {};
+```
 
-Examples include:
+Providers advertise values through `PropertyValue`:
 
-- maximum packet size;
-- clock resolution;
-- maximum supported path length.
+```cpp
+Framework::PropertyValue<
+    MaximumPayloadBytes,
+    1024U
+>
+```
 
-Properties continue to use the existing `Property<>`, `PropertyValue<>`, and ordered constraint vocabulary.
+Properties are appropriate when the characteristic is part of the stable capability vocabulary.
 
 ### Attribute
 
-An Attribute is an open-ended compile-time descriptor attached to one specific capability `Offer`.
-
-Attributes are appropriate when a provider or application needs to describe **which otherwise-compatible provider is meant**, without forcing every possible differentiator into the abstraction's closed vocabulary.
-
-Examples include:
-
-- `Frequency = 24917`;
-- `StorageType = "SD"`;
-- `Role = "Telemetry"`;
-- `Position = "RearLeft"`.
-
-The capability-owning library does not need to pre-register Attribute names or enumerate every possible Attribute value.
-
-A future provider can introduce a new descriptor without modifying the capability abstraction.
-
----
-
-## Advertising Attributes
-
-Attributes are declared within an `Offer` so that they qualify only the capability represented by that Offer.
-
-A provider offering two capabilities can therefore advertise completely different Attributes for each capability.
-
-### Native compile-time values
-
-Scalar values, enum values, Boolean values, and other valid C++20 non-type template values can be advertised directly:
-
-```cpp
-Framework::Offer<
-    Radio,
-    Framework::Attribute<
-        "Frequency",
-        24917U
-    >
->
-```
-
-### Compile-time text
-
-Text Attributes use the C++20 structural-string convenience alias:
-
-```cpp
-Framework::Offer<
-    FileStorage,
-    Framework::TextAttribute<
-        "StorageType",
-        "SD"
-    >
->
-```
-
-The equivalent generic form is:
+An Attribute is an open compile-time descriptor attached to an Offer:
 
 ```cpp
 Framework::Attribute<
-    "StorageType",
-    Framework::Text<"SD">
+    "Channel",
+    6
+>
+
+Framework::TextAttribute<
+    "Transport",
+    "WiFi"
 >
 ```
 
-The text is architectural compile-time metadata. The Composition Framework provides no runtime descriptor registry, runtime lookup API, or public Attribute-value accessor. Attribute names and values are retained as template metadata used by compile-time matching rather than as runtime state.
+Attributes are appropriate for open-ended provider descriptors where defining a dedicated Property Type would add little value.
 
-Application code should not attempt to materialize Attribute descriptors at runtime. Runtime descriptor exposure is outside the Composition contract.
+## Advertising Qualified Offers
 
-### Attribute names are open
-
-An Attribute name is a C++20 structural compile-time string.
-
-The following are all legal without prior registration in the capability-owning library:
+A provider may advertise Properties and Attributes together:
 
 ```cpp
-Framework::Attribute<"Frequency", 24917U>
-Framework::TextAttribute<"Role", "Telemetry">
-Framework::TextAttribute<"Bus", "SPI2">
-Framework::TextAttribute<"StorageType", "FutureStorageTechnology">
-```
-
-Attribute names are case-sensitive and exact.
-
-Within one Offer, each Attribute name may appear only once.
-
----
-
-## Requiring Attributes
-
-A consumer qualifies a `Need` with `AttributeEquals` or `TextAttributeEquals`.
-
-For example:
-
-```cpp
-using TelemetryRadioRequirement = Framework::Need<
-    Radio,
-    Framework::AttributeEquals<
-        "Frequency",
-        24917U
-    >,
-    Framework::TextAttributeEquals<
-        "Role",
-        "Telemetry"
-    >
->;
-```
-
-Properties and Attributes may be constrained by the same Need:
-
-```cpp
-using Requirement = Framework::Need<
-    Radio,
-    Framework::AtLeast<
-        MaximumPayloadBytes,
-        128U
-    >,
-    Framework::AttributeEquals<
-        "Frequency",
-        24917U
-    >
->;
-```
-
-The provider must satisfy every constraint in the Need.
-
-Attribute matching is exact in the current contract. Ordered/range Attribute constraints are not currently part of the public API.
-
----
-
-## Qualified Provider Queries
-
-A Domain `Composition` exposes four qualified queries.
-
-### Count
-
-```cpp
-ApplicationComposition::ProviderCountSatisfying<
-    TelemetryRadioRequirement
->
-```
-
-Returns the number of providers satisfying the complete Need.
-
-### Predicate
-
-```cpp
-ApplicationComposition::HasProviderSatisfying<
-    TelemetryRadioRequirement
->
-```
-
-Indicates whether at least one matching provider exists.
-
-### Plural resolution
-
-```cpp
-using Providers = ApplicationComposition::ProvidersSatisfying<
-    TelemetryRadioRequirement
->;
-```
-
-Returns a `ProviderList` containing every matching provider.
-
-Plural resolution is the correct operation when more than one provider may legitimately match.
-
-When Bootstrap owns runtime instances corresponding to that plural type result, `ProviderReferences<...>` can bind those instances into a non-owning typed view and traverse them without runtime capability discovery. See [Composition Provider References](./COMPOSITION-PROVIDER-REFERENCES.MD).
-
-### Singular resolution
-
-```cpp
-using Provider = ApplicationComposition::ProviderSatisfying<
-    TelemetryRadioRequirement
->;
-```
-
-Requires exactly one matching provider.
-
-Compilation fails when:
-
-- no provider satisfies the Need; or
-- more than one provider satisfies the Need.
-
-This deliberately prevents silent first-match selection.
-
-If several providers match, the requirement should be made more specific or plural resolution should be used.
-
----
-
-## Existing Capability Queries Remain Unchanged
-
-Qualified resolution is additive.
-
-The existing APIs retain their established meaning:
-
-```cpp
-ApplicationComposition::ProviderFor<SystemClock>
-ApplicationComposition::ProvidersFor<CommunicationInterface>
-```
-
-`ProviderFor<TCapability>` still requires exactly one provider of that capability.
-
-`ProvidersFor<TCapability>` still returns all providers of that capability without applying qualified constraints.
-
-Existing Property APIs also retain their previous semantics.
-
----
-
-## Same-Domain Requirements
-
-The existing `Requires<>` declaration remains a same-Domain contract.
-
-For example:
-
-```cpp
-Framework::Requires<
-    Framework::Need<SystemClock>
->
-```
-
-The provider and the required capability must belong to the same Composition Domain.
-
-A Domain `Composition` continues to validate these requirements directly.
-
-This existing behavior has not been weakened or reinterpreted.
-
----
-
-## Cross-Domain Dependencies
-
-A provider may also require capabilities belonging to another Domain.
-
-These requirements use the separate additive `DependsOn<>` declaration:
-
-```cpp
-class TelemetryProvider final : public Framework::Provider<
-    ServiceDomain,
-    Framework::Provides<
-        Framework::Offer<TelemetryService>
-    >,
-    Framework::Requires<>,
-    Framework::DependsOn<
-        TelemetryRadioRequirement
+struct WifiRadio final : Framework::Provider<
+    PlatformDomain,
+    Framework::Offers<
+        Framework::Offer<
+            Radio,
+            Framework::PropertyValue<
+                MaximumPayloadBytes,
+                512U
+            >,
+            Framework::TextAttribute<
+                "Transport",
+                "WiFi"
+            >,
+            Framework::Attribute<
+                "Channel",
+                6
+            >
+        >
     >
 > {};
 ```
 
-A `DependsOn<>` entry must belong to a Domain other than the provider's own Domain.
+All metadata remains compile time.
 
-Same-Domain dependencies continue to use `Requires<>`.
+## Requirement Qualification
 
-Unlike `Requires<>`, `DependsOn<>` may contain more than one differently-qualified Need for the same SharedCapability:
+A Requirement combines:
+
+- a Capability;
+- a scope;
+- a provider cardinality;
+- zero or more qualification constraints.
+
+Example:
 
 ```cpp
-Framework::DependsOn<
-    TelemetryRadioRequirement,
-    ControlRadioRequirement
+using WifiRequirement = Framework::Requirement<
+    Radio,
+    Framework::RequirementScope::AnyDomain,
+    Framework::AtLeastProviders<1U>,
+    Framework::TextAttributeEquals<
+        "Transport",
+        "WiFi"
+    >,
+    Framework::AtLeast<
+        MaximumPayloadBytes,
+        256U
+    >
+>;
+```
+
+Qualification constraints filter matching providers. Cardinality determines whether the resulting population is architecturally acceptable.
+
+## Attribute Constraints
+
+Common Attribute constraints include:
+
+```cpp
+Framework::HasAttribute<"Name">
+Framework::DoesNotHaveAttribute<"Name">
+Framework::AttributeEquals<"Name", Value>
+Framework::TextAttributeEquals<"Name", "Text">
+Framework::AttributeBetween<"Name", Minimum, Maximum>
+```
+
+A provider that does not advertise an Attribute required by a positive constraint simply does not match.
+
+Attribute names are intentionally open-ended compile-time strings.
+
+## Property Constraints
+
+Qualified resolution also supports Property constraints such as:
+
+```cpp
+Framework::HasProperty<Property>
+Framework::DoesNotHaveProperty<Property>
+Framework::Equals<Property, Value>
+Framework::NotEquals<Property, Value>
+Framework::AtLeast<Property, Value>
+Framework::AtMost<Property, Value>
+Framework::Between<Property, Minimum, Maximum>
+Framework::OneOf<Property, Values...>
+Framework::NoneOf<Property, Values...>
+```
+
+Typed FlagProperty constraints are described in
+[Composition Flag Properties](./COMPOSITION-FLAG-PROPERTIES.MD).
+
+## Logical Constraints
+
+Constraints may be composed:
+
+```cpp
+Framework::AllOf<...>
+Framework::AnyOf<...>
+Framework::Not<...>
+```
+
+For example:
+
+```cpp
+using PreferredRadio = Framework::Requirement<
+    Radio,
+    Framework::RequirementScope::AnyDomain,
+    Framework::AtLeastProviders<1U>,
+    Framework::AnyOf<
+        Framework::AtMost<
+            LatencyMicroseconds,
+            4U
+        >,
+        Framework::Equals<
+            Preferred,
+            true
+        >
+    >
+>;
+```
+
+## Requirement Scope
+
+`RequirementScope::SameDomain` is used by a provider Contract when the required capability belongs to the provider's own Domain.
+
+`RequirementScope::ExternalDomain` is used by a provider Contract when the required capability belongs to another Domain.
+
+`RequirementScope::AnyDomain` is useful for consumer-side queries and reusable consumer Contracts.
+
+Scope is validated as part of provider Contract declaration. It is not inferred from repository layout or include relationships.
+
+## Cardinality
+
+The supported cardinality vocabulary includes:
+
+```cpp
+Framework::ExactlyProviders<N>
+Framework::AtLeastProviders<N>
+Framework::AtMostProviders<N>
+Framework::ProviderCountBetween<Minimum, Maximum>
+Framework::AnyProviderCount
+```
+
+Cardinality belongs to the Requirement. Selection policy belongs to the query.
+
+This distinction is deliberate. For example, a Requirement may accept at least two Radios while a caller separately asks to select every match or the unique lowest-latency match.
+
+## Matching Queries
+
+Both `Composition` and `Architecture` expose the canonical query surface.
+
+### Match count
+
+```cpp
+ApplicationArchitecture::MatchCount<WifiRequirement>
+```
+
+### Presence
+
+```cpp
+ApplicationArchitecture::HasMatch<WifiRequirement>
+```
+
+### Plural matches
+
+```cpp
+using Providers =
+    ApplicationArchitecture::Matches<WifiRequirement>;
+```
+
+The result is a deterministic `ProviderList<...>`.
+
+### Cardinality validation
+
+```cpp
+ApplicationArchitecture::SatisfiesRequirement<
+    WifiRequirement
 >
 ```
 
-Each Need is validated independently.
+This evaluates the Requirement's provider-count policy.
 
-Repeated Needs do **not** implicitly assert provider cardinality or object distinctness. If an architecture requires proof that two dependencies must resolve to different concrete providers, that is a separate architectural constraint and must be represented explicitly rather than inferred from repetition.
+## Explicit Selection
 
----
+Use `Select` when a specific result shape is required:
+
+```cpp
+using WifiProvider = ApplicationArchitecture::Select<
+    WifiRequirement,
+    Framework::SelectUnique
+>;
+```
+
+Available selection policies:
+
+```cpp
+Framework::SelectAll
+Framework::SelectUnique
+Framework::SelectOptionalUnique
+Framework::SelectMinimum<Property>
+Framework::SelectMaximum<Property>
+Framework::SelectAllMinimum<Property>
+Framework::SelectAllMaximum<Property>
+```
+
+No singular provider is chosen implicitly.
+
+## Best-Match Selection
+
+Property-based policies rank the already-qualified provider set.
+
+For example:
+
+```cpp
+using FastestRadio = ApplicationArchitecture::Select<
+    RadioRequirement,
+    Framework::SelectMinimum<
+        LatencyMicroseconds
+    >
+>;
+```
+
+If more than one provider ties for the minimum, singular `SelectMinimum` is a compile-time error.
+
+Use `SelectAllMinimum` to preserve all tied providers:
+
+```cpp
+using FastestRadios = ApplicationArchitecture::Select<
+    RadioRequirement,
+    Framework::SelectAllMinimum<
+        LatencyMicroseconds
+    >
+>;
+```
+
+The same distinction applies to maximum-value selection.
+
+## Same-Domain Provider Contracts
+
+A provider declares same-domain requirements directly in its consolidated Contract:
+
+```cpp
+using LocalClock = Framework::Requirement<
+    Clock,
+    Framework::RequirementScope::SameDomain,
+    Framework::ExactlyProviders<1U>
+>;
+
+struct SchedulerProvider final : Framework::Provider<
+    PlatformDomain,
+    Framework::Offers<
+        Framework::Offer<Scheduler>
+    >,
+    Framework::Contract<
+        LocalClock
+    >
+> {};
+```
+
+The Domain Composition validates the same-domain cardinality.
+
+## Cross-Domain Provider Contracts
+
+Cross-domain requirements use `ExternalDomain`:
+
+```cpp
+using ExternalWifi = Framework::Requirement<
+    Radio,
+    Framework::RequirementScope::ExternalDomain,
+    Framework::ExactlyProviders<1U>,
+    Framework::TextAttributeEquals<
+        "Transport",
+        "WiFi"
+    >
+>;
+
+struct TelemetryProvider final : Framework::Provider<
+    ServiceDomain,
+    Framework::Offers<
+        Framework::Offer<Telemetry>
+    >,
+    Framework::Contract<
+        ExternalWifi
+    >
+> {};
+```
+
+The complete `Architecture` validates the external Requirement.
+
+There is no separate cross-domain dependency container. The provider's `Contract` is the single source of truth.
+
+## Provider Relationships
+
+Qualified Requirements may be combined in Contract relationship clauses.
+
+### Same provider
+
+```cpp
+Framework::SameProvider<
+    WifiRequirement,
+    DiagnosticsRequirement
+>
+```
+
+One concrete provider Type must satisfy every Requirement.
+
+### Distinct providers
+
+```cpp
+Framework::DistinctProviders<
+    WifiRequirement,
+    BleRequirement
+>
+```
+
+The Framework must be able to assign pairwise-distinct provider Types.
+
+These are structural constraints, not runtime object searches.
 
 ## Architecture
 
-A Domain `Composition` validates providers and same-Domain requirements.
-
-Cross-Domain dependencies are validated by an `Architecture` containing the relevant Domain Compositions:
-
 ```cpp
 using ApplicationArchitecture = Framework::Architecture<
-    RadioComposition,
+    PlatformComposition,
     ServiceComposition
 >;
+
+static_assert(ApplicationArchitecture::IsValid);
 ```
 
-`Architecture<>` verifies:
+Architecture flattens the participating provider Types for Contract validation while preserving Domain Composition boundaries.
 
-- each entry is a Composition;
-- each Domain appears at most once;
-- every provider's `DependsOn<>` requirements can be satisfied by the participating Compositions.
+It validates:
 
-It also exposes Architecture-level qualified provider queries:
+- external Requirement cardinality;
+- cross-domain SameProvider/DistinctProviders relationships;
+- lifecycle targets;
+- lifecycle cycles;
+- reusable consumer Contracts.
+
+## Architecture Is Not Runtime Dependency Injection
+
+Architecture does not create providers.
+
+This:
 
 ```cpp
-using RadioProvider = ApplicationArchitecture::ProviderSatisfying<
-    TelemetryRadioRequirement
+using Provider = ApplicationArchitecture::Select<
+    WifiRequirement,
+    Framework::SelectUnique
 >;
 ```
 
-### Architecture is not runtime dependency injection
+produces a Type.
 
-`Architecture<>` does not:
+Bootstrap still owns the object:
 
-- construct providers;
-- own providers;
-- allocate storage;
-- pass references;
-- establish initialization order;
-- start or stop services.
+```cpp
+Provider wifi;
+```
 
-Bootstrap code remains responsible for ordinary C++ object ownership and for wiring the selected provider instances together.
-
-The additive `ProviderReferences<ProviderList<...>>` utility does not change this boundary. It stores only non-owning references to provider instances which Bootstrap already owns; it does not construct, own, register, discover, start, or stop providers. See [Composition Provider References](./COMPOSITION-PROVIDER-REFERENCES.MD).
-
-Composition and Architecture answer compile-time structural questions only.
-
-### Architecture validation must be instantiated
-
-A provider may declare `DependsOn<>` while its own Domain Composition remains independently valid.
-
-The complete cross-Domain contract is validated when the application or higher-level Bootstrap instantiates the corresponding `Architecture<...>`.
-
-Applications using providers with cross-Domain dependencies must therefore include the relevant Domain Compositions in their Architecture.
-
----
+and passes it explicitly to consumers.
 
 ## Dependency-Graph Boundaries Still Apply
 
-`DependsOn<>` describes a compile-time capability dependency.
+Composition does not change repository ownership or dependency direction.
 
-It does not override ESPressio's library dependency policies.
+A provider library may implement a capability defined in another library, but compile-time Architecture metadata must not be used to create circular library dependencies.
 
-In particular:
-
-- it does not authorize circular ESPressio library dependencies;
-- it does not permit a higher-level abstraction library to depend on a concrete lower-level implementation repository when the architecture prohibits that direction;
-- it does not replace the repository dependency graph.
-
-For example, a Persistence-domain concrete provider may declare a need for a Platform-domain storage mechanism while normal library dependencies still flow in the permitted direction.
-
----
+The repository dependency graph remains authoritative.
 
 ## Runtime Cost Contract
 
-Attributes are intended solely for compile-time architectural selection.
+Qualified resolution is compile time:
 
-The Composition Framework introduces no runtime:
+- no heap allocation;
+- no runtime search;
+- no runtime strings;
+- no provider registry;
+- no virtual dispatch requirement;
+- no retained query objects.
 
-- heap allocation for Attributes;
-- RAM descriptor registry;
-- provider lookup;
-- descriptor lookup;
-- Attribute-value accessor;
-- string comparison;
-- dynamic dispatch for resolution.
-
-Compile-time text is represented using C++20 structural values and participates in template resolution.
-
-Longer or more numerous descriptors can increase compiler work, template symbol length, and debug/build artefact size. Those are build-time costs rather than intentional runtime firmware costs.
-
-The framework should not add runtime APIs which materialize Attributes merely for inspection.
-
----
+Only the concrete objects explicitly instantiated by Bootstrap exist at runtime.
 
 ## Complete Example
 
 ```cpp
 namespace Framework = ESPressio::System::CompositionFramework;
 
-struct RadioDomain final : Framework::Domain {};
+struct PlatformDomain final : Framework::Domain {};
 struct ServiceDomain final : Framework::Domain {};
 
-struct Radio final : Framework::SharedCapability<RadioDomain> {};
-struct Service final : Framework::ExclusiveCapability<ServiceDomain> {};
+struct Radio final :
+    Framework::SharedCapability<PlatformDomain> {};
 
-class FrequencyXRadio final : public Framework::Provider<
-    RadioDomain,
-    Framework::Provides<
+struct Telemetry final :
+    Framework::ExclusiveCapability<ServiceDomain> {};
+
+struct MaximumPayloadBytes final :
+    Framework::Property<Radio, std::uint16_t> {};
+
+struct WifiRadio final : Framework::Provider<
+    PlatformDomain,
+    Framework::Offers<
         Framework::Offer<
             Radio,
-            Framework::Attribute<
-                "Frequency",
-                24917U
+            Framework::PropertyValue<
+                MaximumPayloadBytes,
+                512U
             >,
             Framework::TextAttribute<
-                "Role",
-                "Telemetry"
+                "Transport",
+                "WiFi"
             >
         >
     >
 > {};
 
-class FrequencyYRadio final : public Framework::Provider<
-    RadioDomain,
-    Framework::Provides<
+struct BleRadio final : Framework::Provider<
+    PlatformDomain,
+    Framework::Offers<
         Framework::Offer<
             Radio,
-            Framework::Attribute<
-                "Frequency",
-                58124U
+            Framework::PropertyValue<
+                MaximumPayloadBytes,
+                1024U
             >,
             Framework::TextAttribute<
-                "Role",
-                "Control"
+                "Transport",
+                "BLE"
             >
         >
     >
 > {};
 
-using TelemetryRadioRequirement = Framework::Need<
+using ExternalWifi = Framework::Requirement<
     Radio,
-    Framework::AttributeEquals<
-        "Frequency",
-        24917U
-    >,
+    Framework::RequirementScope::ExternalDomain,
+    Framework::ExactlyProviders<1U>,
     Framework::TextAttributeEquals<
-        "Role",
-        "Telemetry"
+        "Transport",
+        "WiFi"
     >
 >;
 
-using ControlRadioRequirement = Framework::Need<
-    Radio,
-    Framework::AttributeEquals<
-        "Frequency",
-        58124U
-    >
->;
-
-class ServiceProvider final : public Framework::Provider<
+struct TelemetryProvider final : Framework::Provider<
     ServiceDomain,
-    Framework::Provides<
-        Framework::Offer<Service>
+    Framework::Offers<
+        Framework::Offer<Telemetry>
     >,
-    Framework::Requires<>,
-    Framework::DependsOn<
-        TelemetryRadioRequirement,
-        ControlRadioRequirement
+    Framework::Contract<
+        ExternalWifi
     >
 > {};
 
-using RadioComposition = Framework::Composition<
-    RadioDomain,
-    FrequencyXRadio,
-    FrequencyYRadio
+using PlatformComposition = Framework::Composition<
+    PlatformDomain,
+    WifiRadio,
+    BleRadio
 >;
 
 using ServiceComposition = Framework::Composition<
     ServiceDomain,
-    ServiceProvider
+    TelemetryProvider
 >;
 
 using ApplicationArchitecture = Framework::Architecture<
-    RadioComposition,
+    PlatformComposition,
     ServiceComposition
 >;
 
-using TelemetryRadioProvider = ApplicationArchitecture::ProviderSatisfying<
-    TelemetryRadioRequirement
+static_assert(ApplicationArchitecture::IsValid);
+
+using ConsumerRadios = Framework::Requirement<
+    Radio,
+    Framework::RequirementScope::AnyDomain,
+    Framework::AtLeastProviders<1U>,
+    Framework::AtLeast<
+        MaximumPayloadBytes,
+        512U
+    >
 >;
+
+using Matches =
+    ApplicationArchitecture::Matches<ConsumerRadios>;
+
+static_assert(Matches::Count == 2U);
+
+using LargestPayload = ApplicationArchitecture::Select<
+    ConsumerRadios,
+    Framework::SelectMaximum<
+        MaximumPayloadBytes
+    >
+>;
+
+static_assert(
+    std::is_same_v<
+        LargestPayload,
+        BleRadio
+    >
+);
 ```
 
-`TelemetryRadioProvider` resolves to `FrequencyXRadio` at compile time without the service naming that concrete implementation in its requirement.
+The buildable examples and demos under this repository use the same canonical query surface.

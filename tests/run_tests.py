@@ -17,6 +17,7 @@ CXX = os.environ.get("CXX", "c++")
 
 POSITIVE_TESTS = (
     ROOT / "tests" / "composition" / "CompositionTests.cpp",
+    ROOT / "tests" / "composition" / "ContractTests.cpp",
     ROOT / "tests" / "composition" / "FlagPropertyTests.cpp",
     ROOT / "tests" / "composition" / "ProviderReferencesTests.cpp",
     ROOT / "tests" / "flags" / "FlagSetTests.cpp",
@@ -29,6 +30,12 @@ COMPILE_FAIL_TESTS = (
     ROOT / "tests" / "compile_fail" / "flag_constraint_empty.cpp",
     ROOT / "tests" / "compile_fail" / "provider_references_wrong_binding.cpp",
     ROOT / "tests" / "compile_fail" / "provider_references_incompatible_callable.cpp",
+    ROOT / "tests" / "compile_fail" / "contract_cardinality_unsatisfied.cpp",
+    ROOT / "tests" / "compile_fail" / "contract_distinct_providers_unsatisfied.cpp",
+    ROOT / "tests" / "compile_fail" / "contract_best_match_tie.cpp",
+    ROOT / "tests" / "compile_fail" / "contract_same_provider_cross_domain.cpp",
+    ROOT / "tests" / "compile_fail" / "contract_lifecycle_cycle.cpp",
+    ROOT / "tests" / "compile_fail" / "contract_lifecycle_self_dependency.cpp",
 )
 
 COMMON_ARGUMENTS = (
