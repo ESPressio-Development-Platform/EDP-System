@@ -41,56 +41,7 @@ namespace ESPressio::System::CompositionFramework {
         };
 
 
-        /// Default requirement metadata for types that are not Need declarations.
-        template<class TNeed, class = void>
-        struct NeedTraits {
-
-            // Requirement metadata.
-
-            /// Indicates whether the inspected type is a valid capability requirement.
-            static constexpr bool IsValid = false;
-
-        };
-
-
-        /// Extracts metadata from a Need declaration.
-        template<class TNeed>
-        struct NeedTraits<
-            TNeed,
-            std::void_t<
-                typename TNeed::NeedTag,
-                typename TNeed::CapabilityType,
-                typename TNeed::CompositionDomain
-            >
-        > {
-
-            // Requirement metadata.
-
-            /// Indicates whether the inspected requirement references a valid capability.
-            static constexpr bool IsValid = IsCapabilityV<typename TNeed::CapabilityType>;
-
-        };
-
-
-        /// Indicates whether every required capability in a requirement pack is unique.
-        template<class... TNeeds>
-        struct UniqueNeeds;
-
-
-        /// Empty requirement packs are unique.
-        template<>
-        struct UniqueNeeds<> : std::true_type {};
-
-
-        /// Checks the first requirement against the remaining requirements and continues recursively.
-        template<class TFirstNeed, class... TRestNeeds>
-        struct UniqueNeeds<TFirstNeed, TRestNeeds...> : std::bool_constant<
-            ((!std::is_same_v<typename TFirstNeed::CapabilityType, typename TRestNeeds::CapabilityType>) && ...) &&
-            UniqueNeeds<TRestNeeds...>::value
-        > {};
-
-
-        /// Evaluates one constraint against a property-only set for backward-compatible Need inspection.
+        /// Evaluates one constraint against a PropertySet-only view.
         template<class TConstraint, class TPropertySet, bool TIsAttributeConstraint = IsAttributeConstraintV<TConstraint>>
         struct ConstraintSatisfiedByProperties : std::bool_constant<
             TConstraint::template IsSatisfied<TPropertySet>()
@@ -115,32 +66,6 @@ namespace ESPressio::System::CompositionFramework {
             TConstraint::template IsSatisfied<typename TOffer::Attributes>()
         > {};
 
-
-        /// Default cross-domain dependency metadata for types that are not DependsOn declarations.
-        template<class TDependsOn, class = void>
-        struct DependsOnTraits {
-
-            // Dependency metadata.
-
-            /// Indicates whether the inspected type is a valid DependsOn declaration.
-            static constexpr bool IsValid = false;
-
-        };
-
-
-        /// Extracts metadata from a DependsOn declaration.
-        template<class TDependsOn>
-        struct DependsOnTraits<
-            TDependsOn,
-            std::void_t<typename TDependsOn::DependsOnTag>
-        > {
-
-            // Dependency metadata.
-
-            /// Indicates whether the inspected type is a valid DependsOn declaration.
-            static constexpr bool IsValid = true;
-
-        };
 
     } // ESPressio::System::CompositionFramework::Detail
 
@@ -1386,108 +1311,5 @@ namespace ESPressio::System::CompositionFramework {
 
     };
 
-
-    /// Declares one capability required by a provider, optionally constrained by properties and open-ended Attributes.
-    template<class TCapability, class... TConstraints>
-    struct Need {
-
-        static_assert(
-            IsCapabilityV<TCapability>,
-            "Need requires a concrete composition capability"
-        );
-
-        static_assert(
-            (Detail::RequirementConstraintAppliesToCapability<TCapability, TConstraints>() && ...),
-            "Need contains a constraint that cannot be applied to the requested capability"
-        );
-
-        // Requirement metadata.
-
-        /// Marker used to identify Need declarations during compile-time inspection.
-        using NeedTag = void;
-
-        /// Capability required by this declaration.
-        using CapabilityType = TCapability;
-
-        /// Domain inherited from the required capability.
-        using CompositionDomain = typename Detail::CapabilityTraits<TCapability>::DomainType;
-
-        /// Number of property and Attribute constraints attached to this requirement.
-        static constexpr std::size_t ConstraintCount = sizeof...(TConstraints);
-
-        // Requirement evaluation.
-
-        /// Indicates whether a supplied property set satisfies every property constraint attached to this requirement.
-        template<class TPropertySet>
-        static constexpr bool PropertiesSatisfied = (Detail::ConstraintSatisfiedByProperties<TConstraints, TPropertySet>::value && ...);
-
-        /// Indicates whether one complete capability Offer satisfies every constraint attached to this requirement.
-        template<class TOffer>
-        static constexpr bool OfferSatisfied = (
-            Detail::RequirementConstraintSatisfiedByOffer<
-                TConstraints,
-                TOffer
-            >() &&
-            ...
-        );
-
-    };
-
-
-    /// Groups the same-domain capabilities required by one provider.
-    template<class... TNeeds>
-    struct Requires {
-
-        static_assert(
-            (Detail::NeedTraits<TNeeds>::IsValid && ...),
-            "Requires entries must be Need declarations"
-        );
-
-        static_assert(
-            Detail::UniqueNeeds<TNeeds...>::value,
-            "Requires contains the same capability more than once"
-        );
-
-        // Requirement-set metadata.
-
-        /// Marker used to identify Requires declarations during compile-time inspection.
-        using RequiresTag = void;
-
-        /// Number of capability requirements contained in this declaration.
-        static constexpr std::size_t Count = sizeof...(TNeeds);
-
-        // Domain inspection.
-
-        /// Indicates whether every requirement belongs to the specified composition domain.
-        template<class TDomain>
-        static constexpr bool IsForDomain = (std::is_same_v<typename TNeeds::CompositionDomain, TDomain> && ...);
-
-    };
-
-
-    /// Groups cross-domain capability dependencies required by one provider.
-    template<class... TNeeds>
-    struct DependsOn {
-
-        static_assert(
-            (Detail::NeedTraits<TNeeds>::IsValid && ...),
-            "DependsOn entries must be Need declarations"
-        );
-
-        // Dependency-set metadata.
-
-        /// Marker used to identify DependsOn declarations during compile-time inspection.
-        using DependsOnTag = void;
-
-        /// Number of cross-domain capability dependencies contained in this declaration.
-        static constexpr std::size_t Count = sizeof...(TNeeds);
-
-        // Domain inspection.
-
-        /// Indicates whether every dependency belongs to a domain other than the specified provider domain.
-        template<class TDomain>
-        static constexpr bool IsExternalTo = ((!std::is_same_v<typename TNeeds::CompositionDomain, TDomain>) && ...);
-
-    };
 
 } // ESPressio::System::CompositionFramework
