@@ -31,7 +31,7 @@ namespace Test {
     /// First Radio provider represented by the target ProviderList.
     struct FirstRadio final : Framework::Provider<
         RadioDomain,
-        Framework::Provides<
+        Framework::Offers<
             Framework::Offer<
                 Radio,
                 Framework::FlagPropertyValue<
@@ -46,7 +46,7 @@ namespace Test {
     /// Second Radio provider represented by the target ProviderList.
     struct SecondRadio final : Framework::Provider<
         RadioDomain,
-        Framework::Provides<
+        Framework::Offers<
             Framework::Offer<
                 Radio,
                 Framework::FlagPropertyValue<
