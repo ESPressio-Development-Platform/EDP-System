@@ -693,12 +693,12 @@ namespace ESPressio::System::CompositionFramework {
         inline constexpr bool ContainsTypeV = (std::is_same_v<TNeedle, THaystack> || ...);
 
 
-        /// Default provider metadata for types that are not provider declarations.
+        /// Default provider metadata for Types that are not provider declarations.
         template<class TDomain, class TProvider, class = void>
         struct IsProviderFor : std::false_type {};
 
 
-        /// Validates a concrete provider type against a composition domain.
+        /// Validates a concrete provider Type against a composition Domain.
         template<class TDomain, class TProvider>
         struct IsProviderFor<
             TDomain,
@@ -706,26 +706,26 @@ namespace ESPressio::System::CompositionFramework {
             std::void_t<
                 typename TProvider::ProviderDeclarationTag,
                 typename TProvider::CompositionDomain,
-                typename TProvider::CompositionCapabilities,
-                typename TProvider::CompositionRequirements,
-                typename TProvider::CompositionDependencies
+                typename TProvider::CompositionOffers,
+                typename TProvider::CompositionContract
             >
         > : std::bool_constant<
             std::is_same_v<typename TProvider::CompositionDomain, TDomain> &&
-            TProvider::CompositionCapabilities::template IsForDomain<TDomain> &&
-            TProvider::CompositionRequirements::template IsForDomain<TDomain>
+            TProvider::CompositionOffers::template IsForDomain<TDomain> &&
+            ContractTraits<typename TProvider::CompositionContract>::IsValid &&
+            TProvider::CompositionContract::template IsProviderContractFor<TDomain>
         > {};
 
 
         /// Indicates whether one provider supplies the requested capability.
         template<class TProvider, class TCapability>
-        inline constexpr bool ProviderProvidesV = TProvider::CompositionCapabilities::template Contains<TCapability>;
+        inline constexpr bool ProviderOffersCapabilityV = TProvider::CompositionOffers::template Contains<TCapability>;
 
 
         /// Counts providers that supply the requested capability.
         template<class TCapability, class... TProviders>
         inline constexpr std::size_t ProviderCountV =
-            (std::size_t{0U} + ... + (ProviderProvidesV<TProviders, TCapability> ? std::size_t{1U} : std::size_t{0U}));
+            (std::size_t{0U} + ... + (ProviderOffersCapabilityV<TProviders, TCapability> ? std::size_t{1U} : std::size_t{0U}));
 
 
         /// Selects the first provider that supplies the requested capability.
@@ -753,7 +753,7 @@ namespace ESPressio::System::CompositionFramework {
 
             /// First provider supplying the requested capability, or the result of searching the remaining providers.
             using Type = std::conditional_t<
-                ProviderProvidesV<TFirstProvider, TCapability>,
+                ProviderOffersCapabilityV<TFirstProvider, TCapability>,
                 TFirstProvider,
                 typename FirstProvider<TCapability, TRestProviders...>::Type
             >;
@@ -786,7 +786,7 @@ namespace ESPressio::System::CompositionFramework {
 
             /// Provider list to use for the next filtering step.
             using NextProviders = std::conditional_t<
-                ProviderProvidesV<TFirstProvider, TCapability>,
+                ProviderOffersCapabilityV<TFirstProvider, TCapability>,
                 ProviderList<TAccumulatedProviders..., TFirstProvider>,
                 ProviderList<TAccumulatedProviders...>
             >;
@@ -798,15 +798,15 @@ namespace ESPressio::System::CompositionFramework {
 
 
         /// Determines whether one provider satisfies one capability requirement.
-        template<class TProvider, class TNeed, bool TProvidesCapability = ProviderProvidesV<TProvider, typename TNeed::CapabilityType>>
-        struct ProviderSatisfiesNeed : std::false_type {};
+        template<class TProvider, class TNeed, bool TOffersDeclarationCapability = ProviderOffersCapabilityV<TProvider, typename TNeed::CapabilityType>>
+        struct ProviderSatisfiesRequirement : std::false_type {};
 
 
         /// Evaluates a capability requirement against a provider that supplies the required capability.
         template<class TProvider, class TNeed>
-        struct ProviderSatisfiesNeed<TProvider, TNeed, true> : std::bool_constant<
+        struct ProviderSatisfiesRequirement<TProvider, TNeed, true> : std::bool_constant<
             TNeed::template OfferSatisfied<
-                typename TProvider::CompositionCapabilities::template OfferFor<typename TNeed::CapabilityType>
+                typename TProvider::CompositionOffers::template OfferFor<typename TNeed::CapabilityType>
             >
         > {};
 
@@ -814,7 +814,7 @@ namespace ESPressio::System::CompositionFramework {
         /// Counts providers that satisfy one capability requirement.
         template<class TNeed, class... TProviders>
         inline constexpr std::size_t SatisfyingProviderCountV =
-            (std::size_t{0U} + ... + (ProviderSatisfiesNeed<TProviders, TNeed>::value ? std::size_t{1U} : std::size_t{0U}));
+            (std::size_t{0U} + ... + (ProviderSatisfiesRequirement<TProviders, TNeed>::value ? std::size_t{1U} : std::size_t{0U}));
 
 
         /// Selects the first provider satisfying one complete capability requirement.
@@ -828,21 +828,21 @@ namespace ESPressio::System::CompositionFramework {
 
             // Lookup result.
 
-            /// Type returned when no provider satisfies the requested Need.
+            /// Type returned when no provider satisfies the requested Requirement.
             using Type = void;
 
         };
 
 
-        /// Continues a satisfying-provider lookup until one provider satisfies the requested Need.
+        /// Continues a satisfying-provider lookup until one provider satisfies the requested Requirement.
         template<class TNeed, class TFirstProvider, class... TRestProviders>
         struct FirstSatisfyingProvider<TNeed, TFirstProvider, TRestProviders...> {
 
             // Lookup result.
 
-            /// First provider satisfying the Need, or the result of searching the remaining providers.
+            /// First provider satisfying the Requirement, or the result of searching the remaining providers.
             using Type = std::conditional_t<
-                ProviderSatisfiesNeed<TFirstProvider, TNeed>::value,
+                ProviderSatisfiesRequirement<TFirstProvider, TNeed>::value,
                 TFirstProvider,
                 typename FirstSatisfyingProvider<TNeed, TRestProviders...>::Type
             >;
@@ -867,7 +867,7 @@ namespace ESPressio::System::CompositionFramework {
         };
 
 
-        /// Adds providers satisfying the Need to the accumulated list and continues filtering.
+        /// Adds providers satisfying the Requirement to the accumulated list and continues filtering.
         template<class TNeed, class... TAccumulatedProviders, class TFirstProvider, class... TRestProviders>
         struct FilterSatisfyingProviders<TNeed, ProviderList<TAccumulatedProviders...>, TFirstProvider, TRestProviders...> {
 
@@ -875,7 +875,7 @@ namespace ESPressio::System::CompositionFramework {
 
             /// Provider list to use for the next filtering step.
             using NextProviders = std::conditional_t<
-                ProviderSatisfiesNeed<TFirstProvider, TNeed>::value,
+                ProviderSatisfiesRequirement<TFirstProvider, TNeed>::value,
                 ProviderList<TAccumulatedProviders..., TFirstProvider>,
                 ProviderList<TAccumulatedProviders...>
             >;
@@ -1148,22 +1148,7 @@ namespace ESPressio::System::CompositionFramework {
         };
 
 
-        /// Evaluates one Requirement's accepted provider count while preserving temporary legacy Need semantics.
-        ///
-        /// @tparam TRequirement Requirement or temporary legacy Need declaration.
-        /// @tparam TProviderCount Number of providers satisfying its qualification.
-        /// @tparam TEnable SFINAE helper used when consolidated cardinality metadata is present.
-        template<
-            class TRequirement,
-            std::size_t TProviderCount,
-            class TEnable = void
-        >
-        struct RequirementCardinalitySatisfied : std::bool_constant<
-            (TProviderCount > 0U)
-        > {};
-
-
-        /// Evaluates consolidated Requirement cardinality.
+        /// Evaluates one Requirement's accepted provider count.
         ///
         /// @tparam TRequirement Consolidated Requirement declaration.
         /// @tparam TProviderCount Number of providers satisfying its qualification.
@@ -1171,46 +1156,9 @@ namespace ESPressio::System::CompositionFramework {
             class TRequirement,
             std::size_t TProviderCount
         >
-        struct RequirementCardinalitySatisfied<
-            TRequirement,
-            TProviderCount,
-            std::void_t<
-                typename TRequirement::RequirementTag,
-                typename TRequirement::Cardinality
-            >
-        > : std::bool_constant<
+        struct RequirementCardinalitySatisfied : std::bool_constant<
             TRequirement::AcceptsProviderCount(
                 TProviderCount
-            )
-        > {};
-
-
-        /// Determines whether all requirements in a Requires declaration are satisfied by a provider pack.
-        ///
-        /// @tparam TRequires Same-domain Requirement container.
-        /// @tparam TProviders Providers participating in the Composition.
-        template<class TRequires, class... TProviders>
-        struct RequirementsSatisfied;
-
-
-        /// Evaluates every Requirement contained in a Requires declaration.
-        ///
-        /// @tparam TRequirements Requirements being evaluated.
-        /// @tparam TProviders Providers participating in the Composition.
-        template<class... TRequirements, class... TProviders>
-        struct RequirementsSatisfied<
-            Requires<TRequirements...>,
-            TProviders...
-        > : std::bool_constant<
-            (
-                RequirementCardinalitySatisfied<
-                    TRequirements,
-                    SatisfyingProviderCountV<
-                        TRequirements,
-                        TProviders...
-                    >
-                >::value &&
-                ...
             )
         > {};
 
@@ -1219,11 +1167,11 @@ namespace ESPressio::System::CompositionFramework {
         ///
         /// @tparam TProvider Provider Type being inspected.
         /// @tparam TProperty Property whose presence is required.
-        /// @tparam TProvidesCapability Whether the provider supplies the Property's owning Capability.
+        /// @tparam TOffersDeclarationCapability Whether the provider supplies the Property's owning Capability.
         template<
             class TProvider,
             class TProperty,
-            bool TProvidesCapability = ProviderProvidesV<
+            bool TOffersDeclarationCapability = ProviderOffersCapabilityV<
                 TProvider,
                 typename TProperty::CapabilityType
             >
@@ -1241,7 +1189,7 @@ namespace ESPressio::System::CompositionFramework {
             TProperty,
             true
         > : std::bool_constant<
-            TProvider::CompositionCapabilities::template PropertiesFor<
+            TProvider::CompositionOffers::template PropertiesFor<
                 typename TProperty::CapabilityType
             >::template Contains<TProperty>
         > {};
@@ -1253,7 +1201,7 @@ namespace ESPressio::System::CompositionFramework {
         /// @tparam TProperty Property whose value is requested.
         template<class TProvider, class TProperty>
         inline constexpr auto ProviderPropertyValueV =
-            TProvider::CompositionCapabilities::template PropertiesFor<
+            TProvider::CompositionOffers::template PropertiesFor<
                 typename TProperty::CapabilityType
             >::template Value<TProperty>;
 
@@ -1731,7 +1679,7 @@ namespace ESPressio::System::CompositionFramework {
             TProvider,
             RequirementList<TRequirements...>
         > : std::bool_constant<
-            (ProviderSatisfiesNeed<TProvider, TRequirements>::value && ...)
+            (ProviderSatisfiesRequirement<TProvider, TRequirements>::value && ...)
         > {};
 
 
@@ -1879,7 +1827,7 @@ namespace ESPressio::System::CompositionFramework {
             >
         > : std::bool_constant<
             (
-                ProviderSatisfiesNeed<
+                ProviderSatisfiesRequirement<
                     TFirstProvider,
                     TRequirement
                 >::value &&
@@ -2066,7 +2014,7 @@ namespace ESPressio::System::CompositionFramework {
 
         /// Evaluates every clause in one consolidated provider Contract against a Composition.
         ///
-        /// @tparam TContract Consolidated Contract or void for a temporary legacy provider.
+        /// @tparam TContract Consolidated Contract.
         /// @tparam TProviderList Providers participating in the Composition.
         template<class TContract, class TProviderList>
         struct ContractSatisfiedInComposition : std::true_type {};
@@ -2091,14 +2039,14 @@ namespace ESPressio::System::CompositionFramework {
         > {};
 
 
-        /// Determines whether all offers in a Provides declaration obey exclusive-capability rules.
-        template<class TProvides, class TDomain, class... TProviders>
-        struct ProvidesIsConflictFree;
+        /// Determines whether all offers in a Offers declaration obey exclusive-capability rules.
+        template<class TOffersDeclaration, class TDomain, class... TProviders>
+        struct OffersAreConflictFree;
 
 
         /// Checks every offered capability against the complete provider pack.
         template<class... TOffers, class TDomain, class... TProviders>
-        struct ProvidesIsConflictFree<Provides<TOffers...>, TDomain, TProviders...> : std::bool_constant<
+        struct OffersAreConflictFree<Offers<TOffers...>, TDomain, TProviders...> : std::bool_constant<
             ((
                 !IsExclusiveCapabilityForV<TDomain, typename TOffers::CapabilityType> ||
                 ProviderCountV<typename TOffers::CapabilityType, TProviders...> <= 1U
@@ -2111,20 +2059,20 @@ namespace ESPressio::System::CompositionFramework {
     /// Compile-time diagnostics describing whether one provider satisfies one Requirement qualification.
     ///
     /// @tparam TProvider Provider Type being inspected.
-    /// @tparam TRequirement Requirement or temporary Need being evaluated.
+    /// @tparam TRequirement Requirement being evaluated.
     template<class TProvider, class TRequirement>
     struct ProviderMatch {
 
         static_assert(
-            Detail::NeedTraits<TRequirement>::IsValid,
-            "ProviderMatch requires a valid Requirement"
+            Detail::RequirementTraits<TRequirement>::IsValid,
+            "ProviderMatch requires a consolidated Requirement"
         );
 
         // Match diagnostics.
 
         /// Indicates whether the provider supplies the requested Capability.
         static constexpr bool ProvidesCapability =
-            Detail::ProviderProvidesV<
+            Detail::ProviderOffersCapabilityV<
                 TProvider,
                 typename TRequirement::CapabilityType
             >;
@@ -2134,7 +2082,7 @@ namespace ESPressio::System::CompositionFramework {
             if constexpr (!ProvidesCapability) {
                 return false;
             } else {
-                using OfferType = typename TProvider::CompositionCapabilities::template OfferFor<
+                using OfferType = typename TProvider::CompositionOffers::template OfferFor<
                     typename TRequirement::CapabilityType
                 >;
 
@@ -2224,16 +2172,12 @@ namespace ESPressio::System::CompositionFramework {
 
         // Internal composition validation.
 
-        /// Indicates whether every exclusive capability has no more than one provider.
+        /// Indicates whether every ExclusiveCapability has no more than one provider.
         static constexpr bool NoCapabilityConflicts =
-            (Detail::ProvidesIsConflictFree<typename TProviders::CompositionCapabilities, TDomain, TProviders...>::value && ...);
+            (Detail::OffersAreConflictFree<typename TProviders::CompositionOffers, TDomain, TProviders...>::value && ...);
 
-        /// Indicates whether every same-domain provider requirement is satisfied by the complete provider set.
-        static constexpr bool AllRequirementsSatisfied =
-            (Detail::RequirementsSatisfied<typename TProviders::CompositionRequirements, TProviders...>::value && ...);
-
-        /// Indicates whether every consolidated same-domain Contract relationship is satisfied.
-        static constexpr bool AllContractRelationshipsSatisfied =
+        /// Indicates whether every same-domain provider Contract clause is satisfied.
+        static constexpr bool AllContractsSatisfied =
             (
                 Detail::ContractSatisfiedInComposition<
                     typename TProviders::CompositionContract,
@@ -2248,13 +2192,8 @@ namespace ESPressio::System::CompositionFramework {
         );
 
         static_assert(
-            AllRequirementsSatisfied,
-            "Composition contains an unsatisfied same-domain provider requirement"
-        );
-
-        static_assert(
-            AllContractRelationshipsSatisfied,
-            "Composition contains an unsatisfied SameProvider, DistinctProviders or lifecycle Contract clause"
+            AllContractsSatisfied,
+            "Composition contains an unsatisfied same-domain provider Contract"
         );
 
         // Composition metadata.
@@ -2274,144 +2213,50 @@ namespace ESPressio::System::CompositionFramework {
         /// Indicates that compile-time composition validation completed successfully.
         static constexpr bool IsValid =
             NoCapabilityConflicts &&
-            AllRequirementsSatisfied &&
-            AllContractRelationshipsSatisfied;
+            AllContractsSatisfied;
 
-        // Capability queries.
+        // Requirement queries.
 
-        /// Returns the number of providers supplying the specified capability.
-        template<class TCapability>
-        static constexpr std::size_t ProviderCountFor = Detail::ProviderCountV<TCapability, TProviders...>;
-
-        /// Indicates whether at least one provider supplies the specified capability.
-        template<class TCapability>
-        static constexpr bool Provides = ProviderCountFor<TCapability> > 0U;
-
-        /// Returns every provider that supplies the specified capability.
-        template<class TCapability>
-        using ProvidersFor = typename Detail::FilterProviders<TCapability, ProviderList<>, TProviders...>::Type;
-
-        /// Resolves the single provider supplying a capability.
-        template<class TCapability>
-        struct ResolveProvider {
+        /// Validates one Requirement before provider matching is attempted.
+        template<class TRequirement>
+        struct ValidateRequirement {
 
             static_assert(
-                IsCapabilityForV<TDomain, TCapability>,
-                "Provider query capability does not belong to this Composition domain"
+                Detail::RequirementTraits<TRequirement>::IsValid,
+                "Composition provider queries require a consolidated Requirement"
             );
 
             static_assert(
-                ProviderCountFor<TCapability> == 1U,
-                "ProviderFor requires exactly one provider for the requested capability"
+                std::is_same_v<typename TRequirement::CompositionDomain, TDomain>,
+                "Requirement Capability does not belong to this Composition Domain"
             );
 
-            // Resolution result.
-
-            /// Provider type supplying the requested capability.
-            using Type = typename Detail::FirstProvider<TCapability, TProviders...>::Type;
-
-        };
-
-
-        /// Returns the single provider supplying the specified capability.
-        template<class TCapability>
-        using ProviderFor = typename ResolveProvider<TCapability>::Type;
-
-        // Qualified requirement queries.
-
-        /// Validates one Need before qualified provider resolution is attempted.
-        template<class TNeed>
-        struct ValidateNeed {
-
-            static_assert(
-                Detail::NeedTraits<TNeed>::IsValid,
-                "Qualified provider queries require a Need declaration"
-            );
-
-            static_assert(
-                std::is_same_v<typename TNeed::CompositionDomain, TDomain>,
-                "Qualified provider Need does not belong to this Composition domain"
-            );
-
-            // Validation result.
-
-            /// Indicates that the Need is valid for this Composition domain.
+            /// Indicates that the Requirement is valid for this Composition.
             static constexpr bool IsValid = true;
 
         };
 
 
-        /// Returns the number of providers satisfying one complete Need declaration.
-        template<class TNeed>
-        static constexpr std::size_t ProviderCountSatisfying =
-            ValidateNeed<TNeed>::IsValid
-                ? Detail::SatisfyingProviderCountV<TNeed, TProviders...>
-                : 0U;
-
-        /// Indicates whether at least one provider satisfies one complete Need declaration.
-        template<class TNeed>
-        static constexpr bool HasProviderSatisfying = ProviderCountSatisfying<TNeed> > 0U;
-
-        /// Resolves every provider satisfying one complete Need declaration.
-        template<class TNeed>
-        struct ResolveProvidersSatisfying {
-
-            static_assert(
-                ValidateNeed<TNeed>::IsValid,
-                "ProvidersSatisfying requires a Need belonging to this Composition domain"
-            );
-
-            // Resolution result.
-
-            /// Provider list containing every provider satisfying the requested Need.
-            using Type = typename Detail::FilterSatisfyingProviders<
-                TNeed,
+        /// Returns every provider matching one Requirement qualification.
+        ///
+        /// @tparam TRequirement Requirement being queried.
+        template<class TRequirement>
+        using Matches = std::conditional_t<
+            ValidateRequirement<TRequirement>::IsValid,
+            typename Detail::FilterSatisfyingProviders<
+                TRequirement,
                 ProviderList<>,
                 TProviders...
-            >::Type;
-
-        };
-
-
-        /// Returns every provider satisfying one complete Need declaration.
-        template<class TNeed>
-        using ProvidersSatisfying = typename ResolveProvidersSatisfying<TNeed>::Type;
-
-        /// Resolves the single provider satisfying one complete Need declaration.
-        template<class TNeed>
-        struct ResolveProviderSatisfying {
-
-            static_assert(
-                ValidateNeed<TNeed>::IsValid,
-                "ProviderSatisfying requires a Need belonging to this Composition domain"
-            );
-
-            static_assert(
-                ProviderCountSatisfying<TNeed> == 1U,
-                "ProviderSatisfying requires exactly one provider satisfying the requested Need"
-            );
-
-            // Resolution result.
-
-            /// Provider type uniquely satisfying the requested Need.
-            using Type = typename Detail::FirstSatisfyingProvider<TNeed, TProviders...>::Type;
-
-        };
-
-
-        /// Returns the single provider satisfying one complete Need declaration.
-        template<class TNeed>
-        using ProviderSatisfying = typename ResolveProviderSatisfying<TNeed>::Type;
-
-
-        // Consolidated Requirement queries.
+            >::Type,
+            ProviderList<>
+        >;
 
         /// Returns the number of providers matching one Requirement qualification.
         ///
         /// @tparam TRequirement Requirement being queried.
         template<class TRequirement>
         static constexpr std::size_t MatchCount =
-            ProviderCountSatisfying<TRequirement>;
+            Matches<TRequirement>::Count;
 
         /// Indicates whether at least one provider matches one Requirement qualification.
         ///
@@ -2420,15 +2265,7 @@ namespace ESPressio::System::CompositionFramework {
         static constexpr bool HasMatch =
             MatchCount<TRequirement> > 0U;
 
-        /// Returns every provider matching one Requirement qualification.
-        ///
-        /// @tparam TRequirement Requirement being queried.
-        template<class TRequirement>
-        using Matches = ProvidersSatisfying<TRequirement>;
-
         /// Indicates whether the matching provider population obeys one Requirement's cardinality.
-        ///
-        /// Temporary legacy Need declarations retain their historical at-least-one semantics.
         ///
         /// @tparam TRequirement Requirement being validated.
         template<class TRequirement>
@@ -2500,14 +2337,14 @@ namespace ESPressio::System::CompositionFramework {
             );
 
             static_assert(
-                TProvider::CompositionCapabilities::template Contains<TCapability>,
+                TProvider::CompositionOffers::template Contains<TCapability>,
                 "Property query provider does not supply the requested capability"
             );
 
             // Resolution result.
 
             /// Property set advertised by the provider for the requested capability.
-            using Type = typename TProvider::CompositionCapabilities::template PropertiesFor<TCapability>;
+            using Type = typename TProvider::CompositionOffers::template PropertiesFor<TCapability>;
 
         };
 
@@ -2516,9 +2353,19 @@ namespace ESPressio::System::CompositionFramework {
         template<class TProvider, class TCapability>
         using PropertiesForProvider = typename ResolveProviderProperties<TProvider, TCapability>::Type;
 
-        /// Returns the property set advertised by the single provider for a capability.
+        /// Returns the Property set advertised by the unique provider for a capability.
         template<class TCapability>
-        using PropertiesFor = PropertiesForProvider<ProviderFor<TCapability>, TCapability>;
+        using PropertiesFor = PropertiesForProvider<
+            Select<
+                Requirement<
+                    TCapability,
+                    RequirementScope::SameDomain,
+                    ExactlyProviders<1U>
+                >,
+                SelectUnique
+            >,
+            TCapability
+        >;
 
         /// Indicates whether the single provider for a capability advertises the specified property.
         template<class TCapability, class TProperty>
@@ -2545,14 +2392,14 @@ namespace ESPressio::System::CompositionFramework {
             );
 
             static_assert(
-                TProvider::CompositionCapabilities::template Contains<TCapability>,
+                TProvider::CompositionOffers::template Contains<TCapability>,
                 "Attribute query provider does not supply the requested capability"
             );
 
             // Resolution result.
 
             /// Attribute set advertised by the provider for the requested capability.
-            using Type = typename TProvider::CompositionCapabilities::template AttributesFor<TCapability>;
+            using Type = typename TProvider::CompositionOffers::template AttributesFor<TCapability>;
 
         };
 
@@ -2561,9 +2408,19 @@ namespace ESPressio::System::CompositionFramework {
         template<class TProvider, class TCapability>
         using AttributesForProvider = typename ResolveProviderAttributes<TProvider, TCapability>::Type;
 
-        /// Returns the Attribute set advertised by the single provider for a capability.
+        /// Returns the Attribute set advertised by the unique provider for a capability.
         template<class TCapability>
-        using AttributesFor = AttributesForProvider<ProviderFor<TCapability>, TCapability>;
+        using AttributesFor = AttributesForProvider<
+            Select<
+                Requirement<
+                    TCapability,
+                    RequirementScope::SameDomain,
+                    ExactlyProviders<1U>
+                >,
+                SelectUnique
+            >,
+            TCapability
+        >;
 
     };
 
