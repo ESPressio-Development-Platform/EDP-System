@@ -2,269 +2,306 @@
 
 ## Purpose
 
-`ProviderReferences` bridges one deliberate gap between compile-time Composition and ordinary runtime Bootstrap wiring.
+`ProviderReferences<ProviderList<...>>` is a small runtime binding helper for plural compile-time provider selections.
 
-The Composition Framework already answers:
+It exists for one specific situation:
 
-> Which provider types satisfy this capability or Need?
+1. Composition determines a set of provider Types at compile time.
+2. Bootstrap owns concrete instances of those provider Types.
+3. A consumer needs non-owning access to all selected instances.
 
-For plural queries it returns a compile-time `ProviderList<TProviders...>` through:
+`ProviderReferences` bridges those two layers without introducing a registry, service locator, heap allocation, runtime type erasure, or provider ownership.
 
-~~~cpp
-Composition::ProvidersFor<TCapability>
-Composition::ProvidersSatisfying<TNeed>
-Architecture::ProvidersSatisfying<TNeed>
-~~~
-
-`ProviderReferences` lets Bootstrap code bind the corresponding **already-owned runtime provider instances** to that compile-time list and pass the resulting non-owning view to a consumer.
-
-It does not construct, own, discover, register, or dynamically select providers.
-
-## Architectural flow
+## Architectural Flow
 
 The intended flow is:
 
-~~~text
-Need
-  |
-  v
-ProvidersSatisfying<Need>
-  |
-  v
-ProviderList<A, B, C>
-  |
-  v
-Bootstrap owns A, B and C instances
-  |
-  v
-ProviderReferences<ProviderList<A, B, C>>
-  |
-  v
-consumer.ForEach(...)
-~~~
+```text
+Requirement
+    -> Composition::Matches<Requirement>
+    -> ProviderList<ConcreteProviderTypes...>
+    -> Bootstrap-owned concrete provider instances
+    -> ProviderReferences<ProviderList<...>>
+    -> consumer
+```
 
-The capability/Need filtering happens entirely at compile time. Runtime traversal therefore performs no capability test and no descriptor lookup.
+Provider selection remains compile time. Object ownership remains Bootstrap.
 
-## Declaring a plural requirement
+## Declaring a Plural Requirement
 
-For example, a Radio domain can advertise a finite feature set:
+For example:
 
-~~~cpp
-enum class RadioFeature : std::uint8_t {
-    Broadcast = 0,
-    ReceiveTimestamp = 1,
-    LowEnergy = 2
-};
-
-struct SupportedFeatures final : Composition::FlagProperty<
+```cpp
+using BroadcastRequirement = Framework::Requirement<
     Radio,
-    RadioFeature,
-    std::uint8_t
-> {};
-~~~
-
-A consumer can describe every acceptable Broadcast provider:
-
-~~~cpp
-using BroadcastRequirement = Composition::Need<
-    Radio,
-    Composition::HasAllFlags<
+    Framework::RequirementScope::SameDomain,
+    Framework::AtLeastProviders<1U>,
+    Framework::HasAllFlags<
         SupportedFeatures,
         RadioFeature::Broadcast
     >
 >;
-~~~
+```
 
-The existing plural query resolves all matching provider **types**:
+Resolve every matching provider Type:
 
-~~~cpp
+```cpp
 using BroadcastProviderTypes =
-    RadioComposition::ProvidersSatisfying<
-        BroadcastRequirement
-    >;
-~~~
+    RadioComposition::Matches<BroadcastRequirement>;
+```
 
-If two providers match, the result is conceptually:
+`BroadcastProviderTypes` is a `ProviderList<...>` preserving deterministic provider declaration order.
 
-~~~cpp
-Composition::ProviderList<
-    TimestampedRadio,
-    BasicBroadcastRadio
->
-~~~
+## Binding Bootstrap-Owned Provider Instances
 
-No provider instance exists merely because this type list exists.
+Define the runtime reference collection:
 
-## Binding Bootstrap-owned provider instances
-
-Bootstrap owns the actual objects:
-
-~~~cpp
-TimestampedRadio timestampedRadio;
-BasicBroadcastRadio basicBroadcastRadio;
-LowEnergyOnlyRadio lowEnergyOnlyRadio;
-~~~
-
-The exact plural result can then be bound:
-
-~~~cpp
+```cpp
 using BroadcastProviderReferences =
-    Composition::ProviderReferences<
+    Framework::ProviderReferences<
         BroadcastProviderTypes
     >;
+```
 
-BroadcastProviderReferences broadcastRadios(
-    timestampedRadio,
-    basicBroadcastRadio
+Bootstrap owns the providers:
+
+```cpp
+TimestampedRadio timestamped;
+BasicBroadcastRadio basic;
+LowEnergyOnlyRadio lowEnergy;
+```
+
+Bind exactly the provider Types represented by the compile-time list, in list order:
+
+```cpp
+BroadcastProviderReferences radios(
+    timestamped,
+    basic
 );
-~~~
+```
 
-The constructor requires provider references in exactly the type/order represented by `BroadcastProviderTypes`.
+Construction is compile-time constrained. Reversing the providers or supplying an unrelated provider does not satisfy the binding constructor.
 
-Passing the wrong provider, omitting one, adding one, or changing their order does not satisfy that constructor and therefore fails compilation.
+The non-matching `lowEnergy` instance remains owned by Bootstrap but is not present in `radios`.
 
-The excluded `LowEnergyOnlyRadio` object remains owned by Bootstrap but is not part of this injected view because its provider type was not selected by the `BroadcastRequirement`.
+## Operating Across Every Provider
 
-## Operating across every provider
+Use `ForEach`:
 
-A consumer can apply the same operation to every bound provider:
-
-~~~cpp
-broadcastRadios.ForEach(
+```cpp
+radios.ForEach(
     [](auto& radio) {
         radio.Broadcast();
     }
 );
-~~~
+```
 
-The callable must be valid for every represented provider type.
+The callable is instantiated against every provider Type represented by the ProviderList.
 
-This is intentionally compile-time checked. A callback which only accepts one concrete provider type cannot be used with a collection containing several different provider types.
+This retains static dispatch and concrete provider Types. There is no virtual base class and no runtime capability lookup.
 
-The operation runs once for each provider in `ProviderList` order.
+## Const Traversal
 
-## Const traversal
+A const reference collection supplies const provider references to the callable:
 
-A const `ProviderReferences` view exposes each provider as const:
+```cpp
+const auto& constRadios = radios;
 
-~~~cpp
-const auto& radios = broadcastRadios;
+constRadios.ForEach(
+    [](const auto& radio) {
+        inspect(radio);
+    }
+);
+```
+
+## Empty Plural Results
+
+An empty list is a valid `ProviderReferences` specialization:
+
+```cpp
+Framework::ProviderReferences<
+    Framework::ProviderList<>
+> none;
+```
+
+Calling `ForEach` on it performs no operation.
+
+Whether an empty match set is architecturally acceptable is controlled by the Requirement's cardinality. For example, `AnyProviderCount` can intentionally allow zero.
+
+## Ownership and Lifetime
+
+`ProviderReferences` is non-owning.
+
+The referenced provider objects must outlive the `ProviderReferences` object and every consumer that stores a copy of it.
+
+A typical application therefore uses this ownership order:
+
+```text
+Application Bootstrap/runtime owner
+    owns concrete provider objects
+    owns consumers
+        consumers store ProviderReferences
+            ProviderReferences borrows providers
+```
+
+The Framework never extends provider lifetimes.
+
+## Result Handling
+
+`ProviderReferences` does not aggregate operation result values.
+
+The callable supplied to `ForEach` owns any aggregation policy required by the application:
+
+```cpp
+bool allSucceeded = true;
 
 radios.ForEach(
-    [](const auto& radio) {
-        static_cast<void>(
-            radio.BroadcastCount()
-        );
+    [&allSucceeded](auto& radio) {
+        allSucceeded =
+            radio.TryBroadcast() &&
+            allSucceeded;
     }
 );
-~~~
+```
 
-This allows read-only inspection without weakening constness of the provider instances.
+This avoids imposing one runtime error model on unrelated capabilities.
 
-## Empty plural results
+## Resource Behavior
 
-`ProviderReferences<ProviderList<>>` is valid.
+The helper stores only the references needed to reach the bound concrete provider instances.
 
-Calling `ForEach` on an empty collection performs no invocation.
+It performs no dynamic allocation and creates no registry.
 
-This allows callers which deliberately treat a plural query as optional to represent a zero-match result without a special runtime registry or sentinel object.
+All provider-set discovery has already happened at compile time in `Matches<Requirement>`.
 
-A required capability/Need remains subject to the existing Composition/Architecture validation rules. `ProviderReferences` does not weaken those contracts.
+## ProviderReferences Is Not a Service Locator
 
-## Ownership and lifetime
+The following model is deliberately **not** provided:
 
-`ProviderReferences` is strictly non-owning.
+```text
+runtime global registry
+    -> ask for capability
+    -> search providers dynamically
+    -> return erased interface/object
+```
 
-It stores one non-owning pointer value for each represented provider instance. It performs no heap allocation.
+Instead:
 
-Every provider instance must outlive:
+```text
+compile-time Requirement
+    -> concrete ProviderList
+    -> explicit Bootstrap binding
+    -> typed non-owning references
+```
 
-- the `ProviderReferences` object;
-- every copy of that object;
-- every consumer which stores such a copy.
+That distinction preserves determinism, explicit ownership and compile-time architecture validation.
 
-Bootstrap remains responsible for provider object construction, destruction, initialization, shutdown, and dependency wiring.
+## Relationship to Singular Injection
 
-The most important rule is:
+When exactly one provider is required, prefer direct explicit injection of the concrete Type selected at compile time:
 
-> Composition selects provider types. Bootstrap owns provider instances. ProviderReferences only binds references between those two layers.
+```cpp
+using ClockProvider = ApplicationArchitecture::Select<
+    ClockRequirement,
+    Framework::SelectUnique
+>;
 
-## Result handling
+class Consumer final {
+public:
+    explicit Consumer(ClockProvider& clock) noexcept :
+        _clock(&clock) {}
 
-`ForEach` itself has no operational success/failure state. It invokes the caller-supplied operation for each provider.
+private:
+    ClockProvider* _clock;
+};
+```
 
-Return values from the callback are intentionally not aggregated by `ProviderReferences`, because different domains have different result semantics.
+Use `ProviderReferences` when the compile-time result is genuinely plural.
 
-When a provider operation is fallible, the callback must handle or deliberately aggregate its strongly typed result itself.
+## Complete Example
 
-For example:
+```cpp
+namespace Framework = ESPressio::System::CompositionFramework;
 
-~~~cpp
-broadcastRadios.ForEach(
-    [&overallResult](auto& radio) {
-        const auto result = radio.Broadcast();
+enum class RadioFeature : std::uint8_t {
+    Broadcast = 0,
+    LowEnergy = 1
+};
 
-        // Domain-specific result handling belongs here.
-        overallResult.Observe(
-            result
-        );
-    }
+struct RadioDomain final : Framework::Domain {};
+struct Radio final : Framework::SharedCapability<RadioDomain> {};
+
+struct SupportedFeatures final : Framework::FlagProperty<
+    Radio,
+    RadioFeature,
+    std::uint8_t
+> {};
+
+class FirstRadio final : public Framework::Provider<
+    RadioDomain,
+    Framework::Offers<
+        Framework::Offer<
+            Radio,
+            Framework::FlagPropertyValue<
+                SupportedFeatures,
+                RadioFeature::Broadcast
+            >
+        >
+    >
+> {
+public:
+    void Broadcast() noexcept {}
+};
+
+class SecondRadio final : public Framework::Provider<
+    RadioDomain,
+    Framework::Offers<
+        Framework::Offer<
+            Radio,
+            Framework::FlagPropertyValue<
+                SupportedFeatures,
+                RadioFeature::Broadcast
+            >
+        >
+    >
+> {
+public:
+    void Broadcast() noexcept {}
+};
+
+using BroadcastRequirement = Framework::Requirement<
+    Radio,
+    Framework::RequirementScope::SameDomain,
+    Framework::AtLeastProviders<1U>,
+    Framework::HasAllFlags<
+        SupportedFeatures,
+        RadioFeature::Broadcast
+    >
+>;
+
+using RadioComposition = Framework::Composition<
+    RadioDomain,
+    FirstRadio,
+    SecondRadio
+>;
+
+using BroadcastProviderTypes =
+    RadioComposition::Matches<BroadcastRequirement>;
+
+using BroadcastReferences =
+    Framework::ProviderReferences<
+        BroadcastProviderTypes
+    >;
+
+static_assert(BroadcastProviderTypes::Count == 2U);
+
+FirstRadio first;
+SecondRadio second;
+
+BroadcastReferences references(
+    first,
+    second
 );
-~~~
+```
 
-This prevents the Composition utility from inventing one generic success/failure policy for unrelated provider domains.
-
-## Resource behavior
-
-For `N` bound providers, the persistent collection stores `N` non-owning provider pointer values in a fixed `std::tuple`.
-
-There is:
-
-- no heap allocation;
-- no runtime list growth;
-- no provider registry;
-- no virtual dispatch required by the collection;
-- no runtime capability matching;
-- no runtime Property or Attribute inspection.
-
-The set of provider types and traversal calls are visible to the compiler and remain eligible for normal optimization/inlining.
-
-## ProviderReferences is not a service locator
-
-This extension does **not** add:
-
-~~~text
-composition.Get<T>()
-architecture.ResolveAtRuntime(...)
-runtime capability names
-runtime provider registration
-runtime provider discovery
-runtime type erasure
-~~~
-
-Those mechanisms would materially change the Composition architecture.
-
-`ProviderReferences` is instead a typed Bootstrap wiring utility over a provider list which was already resolved at compile time.
-
-## Relationship to singular injection
-
-Singular resolution remains unchanged:
-
-~~~cpp
-using ClockProvider =
-    ApplicationComposition::ProviderFor<SystemClock>;
-~~~
-
-Bootstrap can continue to own/inject that one provider using ordinary C++ references.
-
-Plural runtime binding is only needed when a legitimate plural query returns several provider types and one consumer should operate across the matching instances.
-
-## Complete demonstration
-
-A buildable demonstration is provided under:
-
-~~~text
-demos/composition-provider-references/
-~~~
-
-with Arduino IDE, PIOArduino/PlatformIO Arduino, and PIOArduino/PlatformIO ESP-IDF targets.
+The buildable demonstration is under `demos/composition-provider-references`.
