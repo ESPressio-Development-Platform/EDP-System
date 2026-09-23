@@ -3,10 +3,10 @@
 This demo shows the complete plural-provider flow:
 
 ~~~text
-Broadcast Need
+Broadcast Requirement
     |
     v
-ProvidersSatisfying<BroadcastRequirement>
+Matches<BroadcastRequirement>
     |
     v
 ProviderList<TimestampedRadio, BasicBroadcastRadio>
