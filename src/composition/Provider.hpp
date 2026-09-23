@@ -285,298 +285,123 @@ namespace ESPressio::System::CompositionFramework {
     } // ESPressio::System::CompositionFramework::Detail
 
 
-    /// Groups the capabilities supplied by a provider.
+    /// Groups the capability Offers supplied by one provider.
+    ///
+    /// @tparam TOffers Capability Offer declarations supplied by the provider.
     template<class... TOffers>
-    struct Provides {
+    struct Offers {
 
         static_assert(
             sizeof...(TOffers) > 0U,
-            "Provides must contain at least one Offer"
+            "Offers must contain at least one Offer"
         );
 
         static_assert(
             (Detail::OfferTraits<TOffers>::IsValid && ...),
-            "Provides entries must be Offer declarations"
+            "Offers entries must be Offer declarations"
         );
 
         static_assert(
             Detail::UniqueOffers<TOffers...>::value,
-            "Provides contains the same capability more than once"
+            "Offers contains the same capability more than once"
         );
 
         // Offer-set metadata.
 
-        /// Marker used to identify Provides declarations during compile-time inspection.
-        using ProvidesTag = void;
+        /// Marker used to identify Offers declarations during compile-time inspection.
+        using OffersTag = void;
 
-        /// Number of capability offers contained in this declaration.
+        /// Number of capability Offers contained in this declaration.
         static constexpr std::size_t Count = sizeof...(TOffers);
 
         // Domain inspection.
 
-        /// Indicates whether every offered capability belongs to the specified composition domain.
+        /// Indicates whether every offered capability belongs to the specified composition Domain.
         template<class TDomain>
-        static constexpr bool IsForDomain = (std::is_same_v<typename TOffers::CompositionDomain, TDomain> && ...);
+        static constexpr bool IsForDomain =
+            (std::is_same_v<typename TOffers::CompositionDomain, TDomain> && ...);
 
         // Capability queries.
 
         /// Indicates whether this declaration supplies the specified capability.
         template<class TCapability>
-        static constexpr bool Contains = (std::is_same_v<TCapability, typename TOffers::CapabilityType> || ...);
+        static constexpr bool Contains =
+            (std::is_same_v<TCapability, typename TOffers::CapabilityType> || ...);
 
-        /// Resolves one capability offer from this declaration.
+        /// Resolves one capability Offer from this declaration.
         template<class TCapability>
         struct ResolveOffer {
 
             static_assert(
                 Contains<TCapability>,
-                "Requested capability is not supplied by this Provides declaration"
+                "Requested capability is not supplied by this Offers declaration"
             );
-
-            // Resolution result.
 
             /// Offer declaration associated with the requested capability.
             using Type = typename Detail::FindOffer<TCapability, TOffers...>::Type;
 
         };
 
-
         /// Returns the complete Offer declaration associated with the specified capability.
         template<class TCapability>
         using OfferFor = typename ResolveOffer<TCapability>::Type;
 
-        /// Returns the compile-time property set advertised for the specified capability.
+        /// Returns the compile-time Property set advertised for the specified capability.
         template<class TCapability>
         using PropertiesFor = typename OfferFor<TCapability>::Properties;
 
-        /// Returns the open-ended compile-time Attribute set advertised for the specified capability.
+        /// Returns the open-ended Attribute set advertised for the specified capability.
         template<class TCapability>
         using AttributesFor = typename OfferFor<TCapability>::Attributes;
 
     };
 
 
-    /// Canonical provider offer-set vocabulary.
-    ///
-    /// @tparam TOffers Capability Offer declarations supplied by one provider.
-    template<class... TOffers>
-    using Offers = Provides<TOffers...>;
-
-
-    namespace Detail {
-
-        /// Converts an internal RequirementList into the legacy same-domain container used by the matching core.
-        ///
-        /// @tparam TRequirementList Internal RequirementList being converted.
-        template<class TRequirementList>
-        struct MakeRequires;
-
-
-        /// Converts one Requirement pack into Requires.
-        ///
-        /// @tparam TRequirements Requirements represented by the internal list.
-        template<class... TRequirements>
-        struct MakeRequires<RequirementList<TRequirements...>> {
-
-            // Conversion result.
-
-            /// Same-domain Requirement container consumed by the existing validation core.
-            using Type = Requires<TRequirements...>;
-
-        };
-
-
-        /// Converts an internal RequirementList into the legacy cross-domain container used by Architecture validation.
-        ///
-        /// @tparam TRequirementList Internal RequirementList being converted.
-        template<class TRequirementList>
-        struct MakeDependsOn;
-
-
-        /// Converts one Requirement pack into DependsOn.
-        ///
-        /// @tparam TRequirements Requirements represented by the internal list.
-        template<class... TRequirements>
-        struct MakeDependsOn<RequirementList<TRequirements...>> {
-
-            // Conversion result.
-
-            /// Cross-domain Requirement container consumed by the existing validation core.
-            using Type = DependsOn<TRequirements...>;
-
-        };
-
-
-        /// Normalizes legacy and consolidated provider contract declarations during the migration.
-        ///
-        /// @tparam TDomain Provider Domain.
-        /// @tparam TRequirementsOrContract Legacy Requires declaration or consolidated Contract.
-        /// @tparam TDependsOn Legacy DependsOn declaration.
-        /// @tparam TUsesContract Whether the third provider argument is a consolidated Contract.
-        template<
-            class TDomain,
-            class TRequirementsOrContract,
-            class TDependsOn,
-            bool TUsesContract = ContractTraits<TRequirementsOrContract>::IsValid
-        >
-        struct ProviderContractAdapter;
-
-
-        /// Preserves the current provider contract representation while downstream repositories migrate.
-        ///
-        /// @tparam TDomain Provider Domain.
-        /// @tparam TRequires Legacy same-domain requirement container.
-        /// @tparam TDependsOn Legacy cross-domain dependency container.
-        template<
-            class TDomain,
-            class TRequires,
-            class TDependsOn
-        >
-        struct ProviderContractAdapter<
-            TDomain,
-            TRequires,
-            TDependsOn,
-            false
-        > {
-
-            // Normalized contract metadata.
-
-            /// Legacy same-domain requirements.
-            using SameDomainRequirements = TRequires;
-
-            /// Legacy cross-domain dependencies.
-            using ExternalRequirements = TDependsOn;
-
-            /// No consolidated Contract exists for this temporary legacy declaration.
-            using UnifiedContract = void;
-
-            /// Indicates whether the legacy declarations obey their existing domain contracts.
-            static constexpr bool IsValid =
-                TRequires::template IsForDomain<TDomain> &&
-                DependsOnTraits<TDependsOn>::IsValid &&
-                TDependsOn::template IsExternalTo<TDomain>;
-
-        };
-
-
-        /// Adapts one consolidated Contract to the current matching core.
-        ///
-        /// @tparam TDomain Provider Domain.
-        /// @tparam TContract Consolidated provider Contract.
-        /// @tparam TDependsOn Must remain the default empty legacy dependency container.
-        template<
-            class TDomain,
-            class TContract,
-            class TDependsOn
-        >
-        struct ProviderContractAdapter<
-            TDomain,
-            TContract,
-            TDependsOn,
-            true
-        > {
-
-            static_assert(
-                std::is_same_v<TDependsOn, DependsOn<>>,
-                "Provider using a consolidated Contract cannot also supply a legacy DependsOn declaration"
-            );
-
-            // Normalized contract metadata.
-
-            /// Consolidated provider Contract.
-            using UnifiedContract = TContract;
-
-            /// Same-domain Requirements extracted from the consolidated Contract.
-            using SameDomainRequirements = typename MakeRequires<
-                typename TContract::template RequirementsForScope<
-                    RequirementScope::SameDomain
-                >
-            >::Type;
-
-            /// Cross-domain Requirements extracted from the consolidated Contract.
-            using ExternalRequirements = typename MakeDependsOn<
-                typename TContract::template RequirementsForScope<
-                    RequirementScope::ExternalDomain
-                >
-            >::Type;
-
-            /// Indicates whether the consolidated Contract is legal for this provider Domain.
-            static constexpr bool IsValid =
-                TContract::template IsProviderContractFor<TDomain>;
-
-        };
-
-    } // ESPressio::System::CompositionFramework::Detail
-
-
-    /// Declares the compile-time Offers and consumer Contract of one concrete provider type.
-    ///
-    /// The canonical form is Provider<TDomain, Offers<...>, Contract<...>>. During this branch-only
-    /// platform migration the previous four-argument form remains accepted internally so repositories
-    /// can be migrated in dependency order; that compatibility path will be removed before tranche completion.
+    /// Declares the compile-time Offers and consumer Contract of one concrete provider Type.
     ///
     /// @tparam TDomain Domain owning this provider.
     /// @tparam TOffers Capabilities and characteristics supplied by this provider.
-    /// @tparam TRequirementsOrContract Consolidated Contract or temporary legacy Requires declaration.
-    /// @tparam TDependsOn Temporary legacy cross-domain dependency declaration.
+    /// @tparam TContract Consolidated consumer Contract of this provider.
     template<
         class TDomain,
         class TOffers,
-        class TRequirementsOrContract = Contract<>,
-        class TDependsOn = DependsOn<>
+        class TContract = Contract<>
     >
     struct Provider {
 
-        private:
+        static_assert(
+            IsDomainV<TDomain>,
+            "Provider requires a concrete composition Domain"
+        );
 
-            /// Normalized contract representation consumed by Composition validation.
-            using ContractAdapter = Detail::ProviderContractAdapter<
-                TDomain,
-                TRequirementsOrContract,
-                TDependsOn
-            >;
+        static_assert(
+            TOffers::template IsForDomain<TDomain>,
+            "Provider contains an Offer belonging to another composition Domain"
+        );
 
+        static_assert(
+            Detail::ContractTraits<TContract>::IsValid,
+            "Provider requires a consolidated Contract declaration"
+        );
 
-        public:
+        static_assert(
+            TContract::template IsProviderContractFor<TDomain>,
+            "Provider Contract contains an invalid same-domain or external-domain Requirement"
+        );
 
-            static_assert(
-                IsDomainV<TDomain>,
-                "Provider requires a concrete composition Domain"
-            );
+        // Provider metadata.
 
-            static_assert(
-                TOffers::template IsForDomain<TDomain>,
-                "Provider contains an Offer belonging to another composition Domain"
-            );
+        /// Marker used to identify provider declarations during compile-time inspection.
+        using ProviderDeclarationTag = void;
 
-            static_assert(
-                ContractAdapter::IsValid,
-                "Provider Contract contains an invalid same-domain, external-domain or legacy dependency declaration"
-            );
+        /// Domain to which this provider belongs.
+        using CompositionDomain = TDomain;
 
+        /// Canonical Offer collection supplied by this provider.
+        using CompositionOffers = TOffers;
 
-            // Provider metadata.
-
-            /// Marker used to identify provider declarations during compile-time inspection.
-            using ProviderDeclarationTag = void;
-
-            /// Domain to which this provider belongs.
-            using CompositionDomain = TDomain;
-
-            /// Canonical Offer collection supplied by this provider.
-            using CompositionOffers = TOffers;
-
-            /// Consolidated Contract supplied by this provider, or void only while legacy declarations are being migrated.
-            using CompositionContract = typename ContractAdapter::UnifiedContract;
-
-            /// Temporary compatibility alias consumed by the current matching core.
-            using CompositionCapabilities = TOffers;
-
-            /// Same-domain Requirements normalized from the provider Contract.
-            using CompositionRequirements = typename ContractAdapter::SameDomainRequirements;
-
-            /// Cross-domain Requirements normalized from the provider Contract.
-            using CompositionDependencies = typename ContractAdapter::ExternalRequirements;
+        /// Consolidated consumer Contract supplied by this provider.
+        using CompositionContract = TContract;
 
     };
 
