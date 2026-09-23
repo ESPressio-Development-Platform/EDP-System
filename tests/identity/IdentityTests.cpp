@@ -14,7 +14,7 @@ namespace ESPressio::System::Tests::Identity {
     /// Deterministic test provider for the permanent DeviceIdentity capability.
     class TestDeviceIdentity final : public Framework::Provider<
         IdentityDomain::Domain,
-        Framework::Provides<
+        Framework::Offers<
             Framework::Offer<IdentityDomain::DeviceIdentity>
         >
     > {
@@ -54,7 +54,7 @@ namespace ESPressio::System::Tests::Identity {
     /// Test provider simulating the durable RuntimeIncarnationIdentity capability.
     class TestRuntimeIncarnationIdentity final : public Framework::Provider<
         IdentityDomain::Domain,
-        Framework::Provides<
+        Framework::Offers<
             Framework::Offer<IdentityDomain::RuntimeIncarnationIdentity>
         >
     > {
@@ -98,6 +98,22 @@ namespace ESPressio::System::Tests::Identity {
         }
 
     };
+
+
+    /// Requirement selecting the unique permanent DeviceIdentity provider.
+    using DeviceIdentityRequirement = Framework::Requirement<
+        IdentityDomain::DeviceIdentity,
+        Framework::RequirementScope::SameDomain,
+        Framework::ExactlyProviders<1U>
+    >;
+
+
+    /// Requirement selecting the unique RuntimeIncarnationIdentity provider.
+    using RuntimeIncarnationIdentityRequirement = Framework::Requirement<
+        IdentityDomain::RuntimeIncarnationIdentity,
+        Framework::RequirementScope::SameDomain,
+        Framework::ExactlyProviders<1U>
+    >;
 
 
     /// Valid Identity composition used to verify capability resolution.
@@ -152,7 +168,7 @@ namespace ESPressio::System::Tests::Identity {
 
     static_assert(
         std::is_same_v<
-            TestIdentityComposition::ProviderFor<IdentityDomain::DeviceIdentity>,
+            TestIdentityComposition::Select<DeviceIdentityRequirement, Framework::SelectUnique>,
             TestDeviceIdentity
         >,
         "Expected DeviceIdentity to resolve to TestDeviceIdentity"
@@ -160,7 +176,7 @@ namespace ESPressio::System::Tests::Identity {
 
     static_assert(
         std::is_same_v<
-            TestIdentityComposition::ProviderFor<IdentityDomain::RuntimeIncarnationIdentity>,
+            TestIdentityComposition::Select<RuntimeIncarnationIdentityRequirement, Framework::SelectUnique>,
             TestRuntimeIncarnationIdentity
         >,
         "Expected RuntimeIncarnationIdentity to resolve to TestRuntimeIncarnationIdentity"
