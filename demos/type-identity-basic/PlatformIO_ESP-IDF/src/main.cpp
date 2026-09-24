@@ -1,6 +1,20 @@
+#include <cstdint>
+
 #include <ESPressio_System.hpp>
 
 namespace Demo {
+
+    /// Result of executing the universal Type identity demonstration.
+    enum class DemoResult : std::uint8_t {
+        Succeeded = 0,
+        IdentifierInvalid = 1,
+        AuthorityMismatch = 2,
+        LocalIdentifierMismatch = 3,
+        AuthorityValueMismatch = 4,
+        LocalValueMismatch = 5,
+        CanonicalBytesMismatch = 6
+    };
+
 
     /// Demonstration Type authority owned by one logical schema/governance authority.
     inline constexpr ESPressio::System::TypeAuthorityIdentifier ExampleAuthority{
@@ -42,14 +56,14 @@ namespace Demo {
 
 
     /// Runs the universal Type identity demonstration.
-    int Run() noexcept {
+    DemoResult Run() noexcept {
         const auto identifier = ESPressio::System::TypeIdentifierOf<ExampleType>;
 
-        if (!identifier.IsValid()) return 1;
-        if (identifier.Authority() != ExampleAuthority) return 2;
-        if (identifier.LocalIdentifier() != ExampleLocalIdentifier) return 3;
-        if (identifier.Authority().Value() != 0x012345U) return 4;
-        if (identifier.LocalIdentifier().Value() != 0x6789ABCDEFULL) return 5;
+        if (!identifier.IsValid()) return DemoResult::IdentifierInvalid;
+        if (identifier.Authority() != ExampleAuthority) return DemoResult::AuthorityMismatch;
+        if (identifier.LocalIdentifier() != ExampleLocalIdentifier) return DemoResult::LocalIdentifierMismatch;
+        if (identifier.Authority().Value() != 0x012345U) return DemoResult::AuthorityValueMismatch;
+        if (identifier.LocalIdentifier().Value() != 0x6789ABCDEFULL) return DemoResult::LocalValueMismatch;
 
         const ESPressio::System::TypeIdentifier::Storage expectedBytes{
             0x01U,
@@ -62,9 +76,9 @@ namespace Demo {
             0xEFU
         };
 
-        if (identifier.Bytes() != expectedBytes) return 6;
+        if (identifier.Bytes() != expectedBytes) return DemoResult::CanonicalBytesMismatch;
 
-        return 0;
+        return DemoResult::Succeeded;
     }
 
 } // Demo
