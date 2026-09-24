@@ -7,3 +7,4 @@
 #include "composition/ProviderReferences.hpp"
 #include "flags/FlagSet.hpp"
 #include "identity/Identity.hpp"
+#include "types/Types.hpp"

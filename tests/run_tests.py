@@ -22,6 +22,7 @@ POSITIVE_TESTS = (
     ROOT / "tests" / "composition" / "ProviderReferencesTests.cpp",
     ROOT / "tests" / "flags" / "FlagSetTests.cpp",
     ROOT / "tests" / "identity" / "IdentityTests.cpp",
+    ROOT / "tests" / "types" / "TypeIdentifierTests.cpp",
 )
 
 COMPILE_FAIL_TESTS = (
@@ -36,6 +37,10 @@ COMPILE_FAIL_TESTS = (
     ROOT / "tests" / "compile_fail" / "contract_same_provider_cross_domain.cpp",
     ROOT / "tests" / "compile_fail" / "contract_lifecycle_cycle.cpp",
     ROOT / "tests" / "compile_fail" / "contract_lifecycle_self_dependency.cpp",
+    ROOT / "tests" / "compile_fail" / "type_identifier_missing.cpp",
+    ROOT / "tests" / "compile_fail" / "type_identifier_wrong_type.cpp",
+    ROOT / "tests" / "compile_fail" / "type_identifier_non_constexpr.cpp",
+    ROOT / "tests" / "compile_fail" / "type_identifier_invalid.cpp",
 )
 
 COMMON_ARGUMENTS = (
