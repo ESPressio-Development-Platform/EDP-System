@@ -6,6 +6,7 @@
 - [Internal API](Internal-API)
 - [Implementation](Implementation)
 - [Composition](Composition)
+- [Universal Type Identity](Type-Identity)
 - [Resources / Lifecycle / Concurrency](Resources-Lifecycle-Concurrency)
 - [Build / Test / Source](Build-Test-Source)
 - [Dependency Contracts](Dependency-Contracts)

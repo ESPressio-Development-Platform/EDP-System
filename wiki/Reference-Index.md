@@ -1,6 +1,6 @@
 # Reference Index
 
-Every production header under `src/` has a source-derived reference page. Public Composition vocabulary, identity/value types and private members are all documented at declaration level.
+Every production header under `src/` has a source-derived reference page. Public Composition vocabulary, universal Type identity, System Identity/value Types and private members are all documented at declaration level.
 
 | Source header | Classification | Reference |
 |---|---|---|
@@ -22,5 +22,10 @@ Every production header under `src/` has a source-derived reference page. Public
 | `src/identity/IdentityComposition.hpp` | PUBLIC COMPOSITION API | [open](Reference-identity-IdentityComposition) |
 | `src/identity/RuntimeIncarnationId.hpp` | PUBLIC API | [open](Reference-identity-RuntimeIncarnationId) |
 | `src/identity/SystemIdentity.hpp` | PUBLIC API | [open](Reference-identity-SystemIdentity) |
+| `src/types/IdentifiedType.hpp` | PUBLIC API / PRIVATE IMPLEMENTATION | [open](Reference-types-IdentifiedType) |
+| `src/types/TypeAuthorityIdentifier.hpp` | PUBLIC API | [open](Reference-types-TypeAuthorityIdentifier) |
+| `src/types/TypeIdentifier.hpp` | PUBLIC API | [open](Reference-types-TypeIdentifier) |
+| `src/types/TypeLocalIdentifier.hpp` | PUBLIC API | [open](Reference-types-TypeLocalIdentifier) |
+| `src/types/Types.hpp` | PUBLIC API aggregation | [open](Reference-types-Types) |
 
-> Latest deep-pass baseline: `4a8ef43713f998d96ca0601770a0a735cd138c11`.
+> Existing pre-Type-identity pages retain their prior exact source baselines because those source headers were not changed. Universal Type identity and the updated public umbrella are referenced against `cb81bb1b9ecb3a28330ad753a6c2d91c571c5961`.
