@@ -1,7 +1,7 @@
 {
   "name": "EDP-System",
-  "description": "Compile-time composition and lifetime-stable system identity foundations for the ESPressio Development Platform",
-  "keywords": "espressio,system,composition,identity,embedded",
+  "description": "Compile-time composition, universal Type identity and lifetime-stable system identity foundations for the ESPressio Development Platform",
+  "keywords": "espressio,system,composition,identity,type-identity,embedded",
   "homepage": "https://espressio.org",
   "authors": {
     "name": "Simon J. Stuart",

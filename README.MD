@@ -23,6 +23,9 @@ The following facilities are currently provided by the System library:
 - [Flag Set](./docs/FLAG-SET.MD)  
   Defines the allocation-free, strongly typed compact runtime flag representation, state-aware construction, mutation/predicate operations, raw representation access, and storage guarantees.
 
+- [Universal Type Identity](./docs/TYPE-IDENTITY.MD)  
+  Defines the canonical 24-bit Authority / 40-bit authority-local universal Type namespace, exact eight-byte representation, strong component Types, and compile-time identification concept/readers.
+
 - [C++20 Toolchain Baseline](./docs/CPP20-TOOLCHAIN.MD)  
   Defines the required C++20 baseline, recommends PIOArduino for ESP32 Arduino builds, and documents compatible PlatformIO configuration.
 
@@ -49,6 +52,7 @@ Buildable demonstrations are provided under [`./demos`](./demos):
 - `composition-provider-references`
 - `flag-set-basic`
 - `identity-basic`
+- `type-identity-basic`
 
 Each demonstration contains the policy-required Arduino IDE, PlatformIO-compatible Arduino, and PlatformIO-compatible ESP-IDF targets.
 
