@@ -37,15 +37,21 @@ namespace ESPressio::System {
         /// @tparam TType Semantic Type being inspected.
         template<class TType>
         consteval bool IsSchemaType() {
-            if constexpr (!IdentifiedType<TType>) return false;
-            if constexpr (!HasFieldsMember<TType>) return false;
-            if constexpr (!IsFieldSet<typename TType::Fields>::value) return false;
+            if constexpr (!IdentifiedType<TType>) {
+                return false;
+            } else if constexpr (!HasFieldsMember<TType>) {
+                return false;
+            } else if constexpr (!IsFieldSet<typename TType::Fields>::value) {
+                return false;
+            } else {
+                using Fields = typename TType::Fields;
 
-            using Fields = typename TType::Fields;
-
-            if constexpr (Fields::Count == 0U) return true;
-
-            return std::is_same_v<typename Fields::Owner, TType>;
+                if constexpr (Fields::Count == 0U) {
+                    return true;
+                } else {
+                    return std::is_same_v<typename Fields::Owner, TType>;
+                }
+            }
         }
 
 
