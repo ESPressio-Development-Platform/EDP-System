@@ -7,6 +7,7 @@
 - [Implementation](Implementation)
 - [Composition](Composition)
 - [Universal Type Identity](Type-Identity)
+- [Universal Field Schema](Field-Schema)
 - [Resources / Lifecycle / Concurrency](Resources-Lifecycle-Concurrency)
 - [Build / Test / Source](Build-Test-Source)
 - [Dependency Contracts](Dependency-Contracts)

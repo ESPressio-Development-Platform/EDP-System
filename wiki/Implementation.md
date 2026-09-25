@@ -16,6 +16,12 @@ The public identifier Types retain only canonical byte arrays of their exact sem
 
 The private `System::Detail` helpers in `IdentifiedType.hpp` perform detection and focused diagnostics. They must remain readers/validators only: they must not become an external trait-specialisation identity registry.
 
+## Universal Field schema
+
+`FieldIdentifier` retains exactly one byte. `FieldBinding` contains only static compile-time metadata derived from a non-static member pointer. `FieldSet` validates owner consistency, identifier uniqueness, and member uniqueness through Types; it creates no runtime container. `SchemaType` and the common readers are compile-time validators/readers only.
+
+The private member-pointer and uniqueness helpers must remain deterministic and allocation-free. Numeric Field identity, not FieldSet declaration order, is authoritative.
+
 ## System Identity
 
 Identity representations are exact-width values. Device identity and runtime-incarnation identity have distinct semantic roles and must not be conflated. Durable incarnation state must be committed before an incarnation is exposed as current system identity.
