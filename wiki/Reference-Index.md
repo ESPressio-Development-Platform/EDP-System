@@ -32,4 +32,4 @@ Every production header under `src/` has a source-derived reference page. Public
 | `src/types/TypeLocalIdentifier.hpp` | PUBLIC API | [open](Reference-types-TypeLocalIdentifier) |
 | `src/types/Types.hpp` | PUBLIC API aggregation | [open](Reference-types-Types) |
 
-> Existing unchanged source pages retain their prior exact source baselines. The new Field schema headers and updated `src/types/Types.hpp` are referenced against `70b3de93af178340372cad3106efb8baffeaac7d`.
+> Existing unchanged source pages retain their prior exact source baselines. FieldIdentifier/FieldBinding/FieldSet and `src/types/Types.hpp` retain their original Field-schema source baselines; `SchemaType.hpp` is refreshed to robustness-fix baseline `b04ff50c765762842fcbf48ee6c24a7072f5b6d7`.

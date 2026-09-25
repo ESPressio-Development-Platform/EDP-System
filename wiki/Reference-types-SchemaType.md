@@ -2,15 +2,15 @@
 
 **Primary classification:** PUBLIC API / PRIVATE IMPLEMENTATION
 
-**Source baseline:** `70b3de93af178340372cad3106efb8baffeaac7d`
+**Source baseline:** `b04ff50c765762842fcbf48ee6c24a7072f5b6d7`
 
-[Open exact source](https://github.com/ESPressio-Development-Platform/EDP-System/blob/70b3de93af178340372cad3106efb8baffeaac7d/src/types/SchemaType.hpp)
+[Open exact source](https://github.com/ESPressio-Development-Platform/EDP-System/blob/b04ff50c765762842fcbf48ee6c24a7072f5b6d7/src/types/SchemaType.hpp)
 
 ## `SchemaType<TType>`
 
 **Classification:** PUBLIC API
 
-Predicate identifying one `IdentifiedType` which declares a valid canonical nested `Fields` FieldSet owned by that exact Type. Explicit empty FieldSets are valid.
+Predicate identifying one `IdentifiedType` which declares a valid canonical nested `Fields` FieldSet owned by that exact Type. Explicit empty FieldSets are valid. The predicate is deliberately safe for arbitrary candidate Types: missing or malformed `Fields` metadata evaluates to `false` rather than making the concept itself ill-formed.
 
 ## Readers
 
