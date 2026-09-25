@@ -208,13 +208,19 @@ The value Types contain only immutable-by-convention value state manipulated thr
 
 The Type identity facility performs no blocking, allocation, provider access, or time operation.
 
+## Relationship to Field schema
+
+Universal Type identity names the semantic Type. The separate [Universal Field Schema](./FIELD-SCHEMA.MD) facility uses `System::FieldIdentifier` plus compile-time `FieldBinding`/`FieldSet` metadata to identify concrete Fields within that Type.
+
+The Type identity subsystem itself remains independent of Field enumeration and presentation.
+
 ## Deliberate non-goals
 
-Universal Type identity does not define:
+Universal Type identity does not itself define:
 
-- reflection;
-- Field identifiers;
-- schema ownership;
+- general reflection;
+- Field presentation;
+- schema lifecycle/history ownership;
 - serialisation;
 - transmissibility;
 - Primitive families;

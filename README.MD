@@ -26,6 +26,9 @@ The following facilities are currently provided by the System library:
 - [Universal Type Identity](./docs/TYPE-IDENTITY.MD)  
   Defines the canonical 24-bit Authority / 40-bit authority-local universal Type namespace, exact eight-byte representation, strong component Types, and compile-time identification concept/readers.
 
+- [Universal Field Schema](./docs/FIELD-SCHEMA.MD)  
+  Defines the fixed one-byte Type-local Field identity, compile-time concrete-member bindings, canonical Field sets, schema concepts/readers, and allocation-free Field enumeration.
+
 - [C++20 Toolchain Baseline](./docs/CPP20-TOOLCHAIN.MD)  
   Defines the required C++20 baseline, recommends PIOArduino for ESP32 Arduino builds, and documents compatible PlatformIO configuration.
 
@@ -53,6 +56,7 @@ Buildable demonstrations are provided under [`./demos`](./demos):
 - `flag-set-basic`
 - `identity-basic`
 - `type-identity-basic`
+- `field-schema-basic`
 
 Each demonstration contains the policy-required Arduino IDE, PlatformIO-compatible Arduino, and PlatformIO-compatible ESP-IDF targets.
 
