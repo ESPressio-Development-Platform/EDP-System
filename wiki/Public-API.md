@@ -24,6 +24,16 @@ Provider-reference Types bind to Bootstrap-owned provider instances without taki
 
 See [Universal Type Identity](Type-Identity.md) and the corresponding source reference pages for exact semantics.
 
+## Universal Field schema
+
+`FieldIdentifier` is the strong exact one-byte identity of one Field within an owning Type. Every value 0..255 is valid and zero is not a sentinel.
+
+`FieldBinding<&T::Member, id>` is the authoritative compile-time relationship between a concrete non-static data member and its numeric identity. `FieldSet<...>` is the canonical enumerable schema for one owner. `SchemaType<T>` combines universal Type identity with a valid canonical FieldSet.
+
+`FieldsOf<T>`, `FieldIdentifierOf<TField>`, `FieldOwnerOf<TField>`, `FieldValueOf<TField>`, and `ForEachField<T>(callable)` are the common compile-time consumer vocabulary.
+
+See [Universal Field Schema](Field-Schema.md) and the corresponding source reference pages.
+
 ## System Identity
 
 `DeviceIdentifier`, `RuntimeIncarnationId` and `SystemIdentity` form the public runtime identity model. Invalid all-zero identifiers are rejected by the identity contract. `SystemIdentity` is immutable and intentionally non-copyable/non-movable once constructed.

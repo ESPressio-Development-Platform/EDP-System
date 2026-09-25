@@ -20,10 +20,14 @@ Provider-reference helpers allow Bootstrap-owned provider objects to be bound no
 
 Universal Type identity provides a platform-wide stable namespace for semantic Types. The complete identity is exactly eight canonical bytes partitioned into a three-byte globally governed Authority and five-byte authority-local value. The semantic Type declares its own identity; compile-time concepts/readers validate and consume that declaration without a registry.
 
+### Universal Field Schema
+
+Universal Field schema binds one concrete C++ data member to one fixed one-byte Type-local `FieldIdentifier`. Each schema-bearing semantic Type exposes one canonical `FieldSet`, and `SchemaType` validates that the set belongs to that exact identified Type. The subsystem is compile-time/value metadata only and deliberately contains no strings, serializer policy, Localisation presentation, registry, allocation, or RTTI.
+
 ### System Identity
 
 System identity separates durable device identity from runtime incarnation identity. `DeviceIdentifier` is 16 bytes, `RuntimeIncarnationId` is 4 bytes, and `SystemIdentity` combines them into a stable 20-byte runtime identity.
 
 ## Architectural boundaries
 
-Composition is descriptive and validating, not a runtime DI container. Runtime objects remain explicit. Universal Type identity is semantic metadata, not runtime registration. Platform-specific SDKs do not belong in this library.
+Composition is descriptive and validating, not a runtime DI container. Runtime objects remain explicit. Universal Type identity and Field schema are semantic metadata, not runtime registration. Platform-specific SDKs do not belong in this library.
