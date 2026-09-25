@@ -22,7 +22,8 @@ POSITIVE_TESTS = (
     ROOT / "tests" / "composition" / "ProviderReferencesTests.cpp",
     ROOT / "tests" / "flags" / "FlagSetTests.cpp",
     ROOT / "tests" / "identity" / "IdentityTests.cpp",
-    ROOT / "tests" / "types" / "TypeIdentifierTests.cpp",\n    ROOT / "tests" / "types" / "FieldSchemaTests.cpp",
+    ROOT / "tests" / "types" / "TypeIdentifierTests.cpp",
+    ROOT / "tests" / "types" / "FieldSchemaTests.cpp",
 )
 
 COMPILE_FAIL_TESTS = (
@@ -40,8 +41,14 @@ COMPILE_FAIL_TESTS = (
     ROOT / "tests" / "compile_fail" / "type_identifier_missing.cpp",
     ROOT / "tests" / "compile_fail" / "type_identifier_wrong_type.cpp",
     ROOT / "tests" / "compile_fail" / "type_identifier_non_constexpr.cpp",
-    ROOT / "tests" / "compile_fail" / "type_identifier_invalid.cpp",\n    ROOT / "tests" / "compile_fail" / "field_identifier_default.cpp",
-    ROOT / "tests" / "compile_fail" / "field_identifier_out_of_range.cpp",\n    ROOT / "tests" / "compile_fail" / "field_binding_non_member.cpp",\n    ROOT / "tests" / "compile_fail" / "field_set_duplicate_identifier.cpp",\n    ROOT / "tests" / "compile_fail" / "field_set_duplicate_member.cpp",\n    ROOT / "tests" / "compile_fail" / "field_set_mixed_owner.cpp",\n    ROOT / "tests" / "compile_fail" / "schema_type_owner_mismatch.cpp",
+    ROOT / "tests" / "compile_fail" / "type_identifier_invalid.cpp",
+    ROOT / "tests" / "compile_fail" / "field_identifier_default.cpp",
+    ROOT / "tests" / "compile_fail" / "field_identifier_out_of_range.cpp",
+    ROOT / "tests" / "compile_fail" / "field_binding_non_member.cpp",
+    ROOT / "tests" / "compile_fail" / "field_set_duplicate_identifier.cpp",
+    ROOT / "tests" / "compile_fail" / "field_set_duplicate_member.cpp",
+    ROOT / "tests" / "compile_fail" / "field_set_mixed_owner.cpp",
+    ROOT / "tests" / "compile_fail" / "schema_type_owner_mismatch.cpp",
 )
 
 COMMON_ARGUMENTS = (
