@@ -71,6 +71,49 @@ namespace ESPressio::System::Tests::Types {
     };
 
 
+    /// Identified semantic Type which deliberately declares no Field schema.
+    struct IdentifiedWithoutFields final {
+
+        /// Stable universal identity used to prove SchemaType remains a safe predicate.
+        static constexpr TypeIdentifier Identifier{
+            TypeIdentifier::Storage{
+                0x01U,
+                0x23U,
+                0x45U,
+                0x00U,
+                0x00U,
+                0x00U,
+                0x00U,
+                0x02U
+            }
+        };
+
+    };
+
+
+    /// Identified semantic Type whose Fields declaration is not a System FieldSet.
+    struct IdentifiedWithInvalidFields final {
+
+        /// Stable universal identity used to isolate invalid Fields metadata.
+        static constexpr TypeIdentifier Identifier{
+            TypeIdentifier::Storage{
+                0x01U,
+                0x23U,
+                0x45U,
+                0x00U,
+                0x00U,
+                0x00U,
+                0x00U,
+                0x03U
+            }
+        };
+
+        /// Deliberately invalid schema declaration.
+        using Fields = int;
+
+    };
+
+
     /// First demonstration Field binding.
     using TemperatureField = FieldBinding<
         &TemperatureReading::Temperature,
@@ -117,6 +160,17 @@ namespace ESPressio::System::Tests::Types {
     static_assert(
         SchemaType<EmptySchema>,
         "Explicit zero-Field Types must satisfy the universal schema contract"
+    );
+
+
+    static_assert(
+        !SchemaType<IdentifiedWithoutFields>,
+        "Identified Types without Fields metadata must simply fail the SchemaType predicate"
+    );
+
+    static_assert(
+        !SchemaType<IdentifiedWithInvalidFields>,
+        "Non-FieldSet Fields metadata must simply fail the SchemaType predicate"
     );
 
     static_assert(
