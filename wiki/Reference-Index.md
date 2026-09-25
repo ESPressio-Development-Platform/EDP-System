@@ -22,10 +22,14 @@ Every production header under `src/` has a source-derived reference page. Public
 | `src/identity/IdentityComposition.hpp` | PUBLIC COMPOSITION API | [open](Reference-identity-IdentityComposition) |
 | `src/identity/RuntimeIncarnationId.hpp` | PUBLIC API | [open](Reference-identity-RuntimeIncarnationId) |
 | `src/identity/SystemIdentity.hpp` | PUBLIC API | [open](Reference-identity-SystemIdentity) |
+| `src/types/FieldBinding.hpp` | PUBLIC API / PRIVATE IMPLEMENTATION | [open](Reference-types-FieldBinding) |
+| `src/types/FieldIdentifier.hpp` | PUBLIC API | [open](Reference-types-FieldIdentifier) |
+| `src/types/FieldSet.hpp` | PUBLIC API / PRIVATE IMPLEMENTATION | [open](Reference-types-FieldSet) |
 | `src/types/IdentifiedType.hpp` | PUBLIC API / PRIVATE IMPLEMENTATION | [open](Reference-types-IdentifiedType) |
+| `src/types/SchemaType.hpp` | PUBLIC API / PRIVATE IMPLEMENTATION | [open](Reference-types-SchemaType) |
 | `src/types/TypeAuthorityIdentifier.hpp` | PUBLIC API | [open](Reference-types-TypeAuthorityIdentifier) |
 | `src/types/TypeIdentifier.hpp` | PUBLIC API | [open](Reference-types-TypeIdentifier) |
 | `src/types/TypeLocalIdentifier.hpp` | PUBLIC API | [open](Reference-types-TypeLocalIdentifier) |
 | `src/types/Types.hpp` | PUBLIC API aggregation | [open](Reference-types-Types) |
 
-> Existing pre-Type-identity pages retain their prior exact source baselines because those source headers were not changed. Universal Type identity and the updated public umbrella are referenced against `cb81bb1b9ecb3a28330ad753a6c2d91c571c5961`.
+> Existing unchanged source pages retain their prior exact source baselines. The new Field schema headers and updated `src/types/Types.hpp` are referenced against `70b3de93af178340372cad3106efb8baffeaac7d`.
