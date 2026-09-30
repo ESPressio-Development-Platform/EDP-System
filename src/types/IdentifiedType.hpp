@@ -22,12 +22,14 @@ namespace ESPressio::System {
         /// @tparam TType Type whose Identifier declaration is being inspected.
         template<class TType>
         consteval bool HasExactTypeIdentifier() {
-            if constexpr (!HasTypeIdentifierMember<TType>) return false;
-
-            return std::is_same_v<
-                std::remove_cv_t<decltype(TType::Identifier)>,
-                TypeIdentifier
-            >;
+            if constexpr (!HasTypeIdentifierMember<TType>) {
+                return false;
+            } else {
+                return std::is_same_v<
+                    std::remove_cv_t<decltype(TType::Identifier)>,
+                    TypeIdentifier
+                >;
+            }
         }
 
         /// Determines whether the exact Identifier declaration is a constant expression.
@@ -35,11 +37,13 @@ namespace ESPressio::System {
         /// @tparam TType Type whose Identifier declaration is being inspected.
         template<class TType>
         consteval bool HasConstantTypeIdentifier() {
-            if constexpr (!HasExactTypeIdentifier<TType>()) return false;
-
-            return requires {
-                typename std::bool_constant<TType::Identifier.IsValid()>;
-            };
+            if constexpr (!HasExactTypeIdentifier<TType>()) {
+                return false;
+            } else {
+                return requires {
+                    typename std::bool_constant<TType::Identifier.IsValid()>;
+                };
+            }
         }
 
         /// Determines whether a Type satisfies the complete universal identification contract.
@@ -47,9 +51,11 @@ namespace ESPressio::System {
         /// @tparam TType Type whose universal identification contract is being inspected.
         template<class TType>
         consteval bool IsIdentifiedType() {
-            if constexpr (!HasConstantTypeIdentifier<TType>()) return false;
-
-            return TType::Identifier.IsValid();
+            if constexpr (!HasConstantTypeIdentifier<TType>()) {
+                return false;
+            } else {
+                return TType::Identifier.IsValid();
+            }
         }
 
         /// Reads one universal Type identity while emitting focused contract diagnostics.
