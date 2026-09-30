@@ -35,6 +35,19 @@ namespace ESPressio::System::Tests::Types {
     };
 
 
+    /// Type deliberately omitting Identifier to verify predicate-style rejection is substitution-safe.
+    struct MissingIdentifierType final {};
+
+
+    /// Type deliberately declaring Identifier in the wrong semantic domain.
+    struct WrongIdentifierType final {
+
+        /// Invalid Identifier declaration used to verify exact-Type predicate rejection.
+        static constexpr std::uint8_t Identifier = 1U;
+
+    };
+
+
     static_assert(
         sizeof(TypeAuthorityIdentifier) == 3U,
         "TypeAuthorityIdentifier must occupy exactly three bytes"
@@ -58,6 +71,26 @@ namespace ESPressio::System::Tests::Types {
     static_assert(
         !IdentifiedType<InvalidExampleType>,
         "InvalidExampleType must not satisfy the universal identification contract"
+    );
+
+    static_assert(
+        !IdentifiedType<MissingIdentifierType>,
+        "Types without Identifier must evaluate IdentifiedType to false"
+    );
+
+    static_assert(
+        !IdentifiedType<WrongIdentifierType>,
+        "Types with a non-TypeIdentifier Identifier must evaluate IdentifiedType to false"
+    );
+
+    static_assert(
+        !SchemaType<MissingIdentifierType>,
+        "Types without Identifier must evaluate SchemaType to false without a hard error"
+    );
+
+    static_assert(
+        !SchemaType<WrongIdentifierType>,
+        "Types with the wrong Identifier domain must evaluate SchemaType to false"
     );
 
     static_assert(
