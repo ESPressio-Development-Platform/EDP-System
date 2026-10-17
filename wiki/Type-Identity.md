@@ -72,3 +72,7 @@ All value Types are fixed-storage and allocation-free. The concept/reader machin
 - [TypeIdentifier](Reference-types-TypeIdentifier)
 - [IdentifiedType](Reference-types-IdentifiedType)
 - [Types aggregation header](Reference-types-Types)
+
+## Authoritative permanent allocations
+
+EDP-System/main owns the [TypeAuthority and TypeIdentifier registry](https://github.com/ESPressio-Development-Platform/EDP-System/blob/main/docs/TYPE-IDENTITY-REGISTRY.MD). The EDP Core Authority `00 00 01` was formally confirmed by the platform owner on 2026-10-17; `ESPressio::Logging::LogRecord` was permanently assigned local `00 00 00 00 01`, canonical full identity `00 00 01 00 00 00 00 01`. This is a compile-time semantic identity, not a runtime registry or promise that Logging's 15-field schema is complete.
