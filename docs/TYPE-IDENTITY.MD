@@ -71,6 +71,9 @@ Invalid values remain observable. Constructors do not silently repair, renumber,
 
 ## Governance
 
+The authoritative, development-time [TypeAuthority and permanent TypeIdentifier registry](./TYPE-IDENTITY-REGISTRY.MD) records EDP Core Authority `00 00 01` and the formally issued `ESPressio::Logging::LogRecord` canonical identity `00 00 01 00 00 00 00 01` (owner approval, 2026-10-17). Consult the registry and collision-audit source declarations before any future permanent allocation. The registry is **not** a runtime lookup facility and does not replace direct `IdentifiedType<T>` metadata.
+
+
 The identity namespace follows these rules:
 
 - Authority identifiers are globally governed.
