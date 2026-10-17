@@ -23,6 +23,8 @@ The following facilities are currently provided by the System library:
 - [Flag Set](./docs/FLAG-SET.MD)  
   Defines the allocation-free, strongly typed compact runtime flag representation, state-aware construction, mutation/predicate operations, raw representation access, and storage guarantees.
 
+- [Permanent TypeAuthority and TypeIdentifier Registry](./docs/TYPE-IDENTITY-REGISTRY.MD) — authoritative immutable allocations, including EDP Core Authority `0x000001` and `Logging::LogRecord` local `0x0000000001`; governance-only, no runtime registry.
+
 - [Universal Type Identity](./docs/TYPE-IDENTITY.MD)  
   Defines the canonical 24-bit Authority / 40-bit authority-local universal Type namespace, exact eight-byte representation, strong component Types, and compile-time identification concept/readers.
 
