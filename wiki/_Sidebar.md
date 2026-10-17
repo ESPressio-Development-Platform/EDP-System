@@ -13,3 +13,4 @@
 - [Dependency Contracts](Dependency-Contracts)
 - [Reference Index](Reference-Index)
 - [Compiler Definitions](Compiler-Definitions)
+- [Permanent Type ID Registry](https://github.com/ESPressio-Development-Platform/EDP-System/blob/main/docs/TYPE-IDENTITY-REGISTRY.MD)
